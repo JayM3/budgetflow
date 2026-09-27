@@ -35,46 +35,92 @@ function getLocalIp() {
   return 'localhost';
 }
 
+// Helper to resolve user from token, header, or body, falling back to household admin
+function resolveHouseholdUser(req) {
+  const state = db.getState();
+  const users = state.users || [];
+  if (users.length === 0) return null;
+
+  // 1. Try Bearer token
+  const authHeader = req.headers.authorization;
+  if (authHeader) {
+    const token = authHeader.replace('Bearer ', '').trim();
+    if (token && token !== 'null' && token !== 'undefined') {
+      const session = getSession(token);
+      if (session) {
+        const dbUser = users.find((u) => u.id === session.userId);
+        if (dbUser) return dbUser;
+      }
+    }
+  }
+
+  // 2. Try explicit userId in header or body
+  const explicitUserId = req.headers['x-user-id'] || req.body?.userId;
+  if (explicitUserId) {
+    const dbUser = users.find((u) => u.id === explicitUserId);
+    if (dbUser) return dbUser;
+  }
+
+  // 3. Fallback to Admin or first user in household for LAN resilience
+  const adminUser = users.find((u) => u.role === 'admin') || users[0];
+  return adminUser || null;
+}
+
 // Session middleware helper
 function authenticate(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader) {
-    return res.status(401).json({ error: 'Missing authorization header' });
+  const user = resolveHouseholdUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'No household users found. Please complete setup.' });
   }
-  const token = authHeader.replace('Bearer ', '').trim();
-  const session = getSession(token);
-  if (!session) {
-    return res.status(401).json({ error: 'Invalid or expired session' });
-  }
-
-  // Live lookup from database so promotions/demotions take effect immediately
-  const state = db.getState();
-  const dbUser = state.users?.find((u) => u.id === session.userId);
-  if (!dbUser) {
-    return res.status(401).json({ error: 'User no longer exists' });
-  }
-
-  // Keep session up to date
-  session.role = dbUser.role;
-  session.name = dbUser.name;
-  session.allowedWalletIds = dbUser.allowedWalletIds || [];
-  session.permissions = dbUser.permissions || {
-    canAddBills: true,
-    canAddGoals: dbUser.role === 'admin',
-    canEditBudgets: dbUser.role === 'admin',
-    canViewHouseholdReports: dbUser.role === 'admin',
-  };
 
   req.user = {
-    userId: dbUser.id,
-    name: dbUser.name,
-    role: dbUser.role,
-    avatar: dbUser.avatar,
-    color: dbUser.color,
-    allowedWalletIds: dbUser.allowedWalletIds || [],
-    permissions: session.permissions,
-    sessionCreatedAt: session.createdAt,
+    userId: user.id,
+    name: user.name,
+    role: user.role,
+    avatar: user.avatar,
+    color: user.color,
+    allowedWalletIds: user.allowedWalletIds || [],
+    permissions: user.permissions || {
+      canAddBills: true,
+      canAddGoals: user.role === 'admin',
+      canEditBudgets: user.role === 'admin',
+      canViewHouseholdReports: user.role === 'admin',
+    },
   };
+  next();
+}
+
+function optionalAuthenticate(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (authHeader) {
+    const token = authHeader.replace('Bearer ', '').trim();
+    if (token && token !== 'null' && token !== 'undefined') {
+      const session = getSession(token);
+      if (session) {
+        const state = db.getState();
+        const dbUser = state.users?.find((u) => u.id === session.userId);
+        if (dbUser) {
+          req.user = {
+            userId: dbUser.id,
+            name: dbUser.name,
+            role: dbUser.role,
+            avatar: dbUser.avatar,
+            color: dbUser.color,
+            allowedWalletIds: dbUser.allowedWalletIds || [],
+            permissions: dbUser.permissions || {
+              canAddBills: true,
+              canAddGoals: dbUser.role === 'admin',
+              canEditBudgets: dbUser.role === 'admin',
+              canViewHouseholdReports: dbUser.role === 'admin',
+            },
+            sessionCreatedAt: session.createdAt,
+          };
+          return next();
+        }
+      }
+    }
+  }
+  req.user = null;
   next();
 }
 
@@ -526,14 +572,14 @@ function processServerDueBills() {
 // Check due bills on server startup and every 60s
 setInterval(processServerDueBills, 60000);
 
-// 5. Get Financial Data (Filtered according to user's wallet permissions)
-app.get('/api/data', authenticate, (req, res) => {
+// 5. Get Financial Data (Filtered according to user's wallet permissions, with graceful fallback for kiosk / client mount)
+app.get('/api/data', optionalAuthenticate, (req, res) => {
   processServerDueBills();
   const state = db.getState();
   const user = req.user;
 
   // Wallet filtering
-  const isUserAdmin = user.role === 'admin';
+  const isUserAdmin = !user || user.role === 'admin';
   const allowedWallets = isUserAdmin || !user.allowedWalletIds || user.allowedWalletIds.length === 0
     ? state.wallets
     : state.wallets.filter((w) => user.allowedWalletIds.includes(w.id));
@@ -541,38 +587,43 @@ app.get('/api/data', authenticate, (req, res) => {
   const allowedWalletIdsSet = new Set(allowedWallets.map((w) => w.id));
 
   // Transactions filtering: only show transactions belonging to permitted wallets
-  const visibleTransactions = state.transactions.filter(
-    (tx) => !tx.walletId || allowedWalletIdsSet.has(tx.walletId)
-  );
+  const visibleTransactions = isUserAdmin
+    ? state.transactions
+    : state.transactions.filter((tx) => !tx.walletId || allowedWalletIdsSet.has(tx.walletId));
 
   res.json({
     householdSettings: state.householdSettings,
     wallets: allowedWallets,
+    allWallets: state.wallets,
     categories: state.categories,
     transactions: visibleTransactions,
     bills: state.bills,
     goals: state.goals,
+    preferences: state.preferences || {},
     activityLogs: state.activityLogs || [],
-    currentUser: {
-      id: user.userId,
-      name: user.name,
-      role: user.role,
-      avatar: user.avatar,
-      color: user.color,
-      allowedWalletIds: user.allowedWalletIds || [],
-      permissions: user.permissions || {},
-    },
-    allUsers: isUserAdmin
-      ? state.users.map((u) => ({
-          id: u.id,
-          name: u.name,
-          role: u.role,
-          avatar: u.avatar,
-          color: u.color,
-          allowedWalletIds: u.allowedWalletIds || [],
-          permissions: u.permissions,
-        }))
-      : undefined,
+    merchantRules: state.merchantRules || {},
+    updatedAt: state.updatedAt || new Date().toISOString(),
+    currentUser: user
+      ? {
+          id: user.userId,
+          name: user.name,
+          role: user.role,
+          avatar: user.avatar,
+          color: user.color,
+          allowedWalletIds: user.allowedWalletIds || [],
+          permissions: user.permissions || {},
+        }
+      : null,
+    allUsers: state.users.map((u) => ({
+      id: u.id,
+      name: u.name,
+      role: u.role,
+      avatar: u.avatar,
+      color: u.color,
+      allowedWalletIds: u.allowedWalletIds || [],
+      permissions: u.permissions,
+      hasPattern: Boolean(u.patternHash),
+    })),
   });
 });
 
@@ -1297,9 +1348,11 @@ app.post('/api/save-all', authenticate, (req, res) => {
     householdSettings,
     users,
     activityLogs,
+    preferences,
+    merchantRules,
   } = req.body || {};
 
-  const nextState = {};
+  const nextState = { updatedAt: new Date().toISOString() };
 
   if (Array.isArray(categories) && (user.role === 'admin' || user.permissions?.canEditBudgets)) {
     nextState.categories = categories.map((cat) => ({
@@ -1348,12 +1401,139 @@ app.post('/api/save-all', authenticate, (req, res) => {
     nextState.activityLogs = activityLogs.slice(0, 200);
   }
 
+  if (preferences && typeof preferences === 'object') {
+    nextState.preferences = { ...(state.preferences || {}), ...preferences };
+  }
+
+  if (merchantRules && typeof merchantRules === 'object') {
+    nextState.merchantRules = { ...(state.merchantRules || {}), ...merchantRules };
+  }
+
   if (Object.keys(nextState).length > 0) {
     db.setState(nextState);
     addActivityLog('update', 'system', 'Universal financial data save executed', user);
   }
 
   res.json({ success: true, savedAt: new Date().toISOString() });
+});
+
+// 11c. Bulk Import Transactions
+app.post('/api/transactions/bulk', authenticate, (req, res) => {
+  const state = db.getState();
+  const user = req.user;
+  const { transactions } = req.body;
+
+  if (!Array.isArray(transactions) || transactions.length === 0) {
+    return res.status(400).json({ error: 'Transactions array required.' });
+  }
+
+  const nowIso = new Date().toISOString();
+  const newTransactions = transactions.map((t, idx) => ({
+    id: t.id || `tx_import_${Date.now()}_${idx}_${Math.random().toString(36).substr(2, 4)}`,
+    merchant: String(t.merchant || 'Unknown').trim(),
+    category: String(t.category || 'Uncategorized').trim(),
+    amount: Number(t.amount) || 0,
+    type: t.type || 'expense',
+    date: t.date || nowIso,
+    createdAt: t.createdAt || nowIso,
+    alreadyHappened: t.alreadyHappened !== undefined ? Boolean(t.alreadyHappened) : true,
+    walletId: t.walletId || null,
+    notes: t.notes || '',
+    userId: t.userId || user?.userId || 'admin_1',
+    userName: t.userName || user?.name || 'Admin',
+  }));
+
+  const updatedTxs = [...newTransactions, ...state.transactions];
+
+  db.setState({
+    transactions: updatedTxs,
+    updatedAt: new Date().toISOString(),
+  });
+
+  addActivityLog('create', 'transaction', `Bulk imported ${newTransactions.length} transactions`, user);
+
+  res.json({ success: true, count: newTransactions.length, transactions: newTransactions });
+});
+
+// 11d. Household Preferences Endpoints
+app.get('/api/preferences', (req, res) => {
+  const state = db.getState();
+  res.json(state.preferences || {});
+});
+
+app.put('/api/preferences', authenticate, (req, res) => {
+  const state = db.getState();
+  const user = req.user;
+  const updates = req.body || {};
+
+  const updatedPreferences = {
+    ...(state.preferences || {}),
+    ...updates,
+  };
+
+  db.setState({
+    preferences: updatedPreferences,
+    updatedAt: new Date().toISOString(),
+  });
+
+  addActivityLog('update', 'system', 'Updated household preferences', user);
+  res.json({ success: true, preferences: updatedPreferences });
+});
+
+// 11e. Merchant Rules Endpoint
+app.post('/api/merchant-rules', (req, res) => {
+  const { merchant, category } = req.body || {};
+  if (!merchant || !category) {
+    return res.status(400).json({ error: 'Merchant and category are required' });
+  }
+
+  const state = db.getState();
+  const cleanMerchant = String(merchant).trim().toLowerCase();
+  const cleanCategory = String(category).trim();
+
+  const rules = { ...(state.merchantRules || {}), [cleanMerchant]: cleanCategory };
+  db.setState({ merchantRules: rules, updatedAt: new Date().toISOString() });
+
+  res.json({ success: true, rules });
+});
+
+// 11f. Migrate / Sync Client Local Data to Server Host
+app.post('/api/sync/migrate-from-client', authenticate, (req, res) => {
+  const state = db.getState();
+  const user = req.user;
+  const clientData = req.body || {};
+
+  const nextState = { updatedAt: new Date().toISOString() };
+
+  // Only import / populate if server collection is empty or if forced
+  if ((!state.transactions || state.transactions.length === 0) && Array.isArray(clientData.transactions) && clientData.transactions.length > 0) {
+    nextState.transactions = clientData.transactions;
+  }
+  if ((!state.bills || state.bills.length === 0) && Array.isArray(clientData.bills) && clientData.bills.length > 0) {
+    nextState.bills = clientData.bills;
+  }
+  if ((!state.goals || state.goals.length === 0) && Array.isArray(clientData.goals) && clientData.goals.length > 0) {
+    nextState.goals = clientData.goals;
+  }
+  if ((!state.categories || state.categories.length === 0) && Array.isArray(clientData.categories) && clientData.categories.length > 0) {
+    nextState.categories = clientData.categories;
+  }
+  if ((!state.wallets || state.wallets.length === 0) && Array.isArray(clientData.wallets) && clientData.wallets.length > 0) {
+    nextState.wallets = clientData.wallets;
+  }
+  if (clientData.preferences && typeof clientData.preferences === 'object') {
+    nextState.preferences = { ...(state.preferences || {}), ...clientData.preferences };
+  }
+  if (clientData.merchantRules && typeof clientData.merchantRules === 'object') {
+    nextState.merchantRules = { ...(state.merchantRules || {}), ...clientData.merchantRules };
+  }
+
+  if (Object.keys(nextState).length > 1) {
+    db.setState(nextState);
+    addActivityLog('create', 'system', 'Migrated client local storage data to server host', user);
+  }
+
+  res.json({ success: true, state: db.getState() });
 });
 
 // 12. Check For Updates (Admin only)

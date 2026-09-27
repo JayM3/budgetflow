@@ -22,6 +22,7 @@ import { CalendarSyncModal } from './components/features/CalendarSyncModal';
 import { ActivityLogModal } from './components/features/ActivityLogModal';
 import { AddRecurringModal } from './components/features/AddRecurringModal';
 import { SmartAllocationModal } from './components/features/SmartAllocationModal';
+import { RefreshPromptModal } from './components/features/RefreshPromptModal';
 
 const AppContent: React.FC = () => {
   const {
@@ -53,6 +54,7 @@ const AppContent: React.FC = () => {
     return (
       <>
         <TabletKioskView />
+        <RefreshPromptModal />
         <GuideModal
           guideId={activeGuideId}
           onClose={() => setIsGuideOpenWithId(null)}
@@ -146,6 +148,7 @@ const AppContent: React.FC = () => {
         <CalendarSyncModal />
         <ActivityLogModal />
         <SmartAllocationModal />
+        <RefreshPromptModal />
 
         {/* Contextual Guide Modal */}
         <GuideModal

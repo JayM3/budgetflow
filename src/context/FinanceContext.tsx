@@ -212,6 +212,11 @@ interface FinanceContextType {
   isRefreshing: boolean;
   refreshData: () => Promise<void>;
 
+  // Client Page Refresh Interception
+  isRefreshPromptOpen: boolean;
+  setIsRefreshPromptOpen: (open: boolean) => void;
+  bypassSaveOnUnload: () => void;
+
   // Data Persistence & Manual Tab Saves
   saveAll: () => Promise<boolean>;
   saveBudgetsState: () => Promise<boolean>;
@@ -251,6 +256,34 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   });
   const [activeGuideId, setActiveGuideId] = useState<GuideId | null>(null);
+
+  // Client Page Refresh Modal & Discard state
+  const [isRefreshPromptOpen, setIsRefreshPromptOpen] = useState<boolean>(false);
+  const isBypassingSaveOnUnloadRef = useRef<boolean>(false);
+
+  const bypassSaveOnUnload = () => {
+    isBypassingSaveOnUnloadRef.current = true;
+  };
+
+  // Intercept hard reload shortcuts (F5, Ctrl+F5, Ctrl+R, etc.) on client side
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Intercept F5 (standard and Ctrl+F5) and Ctrl+R / Cmd+R
+      const isF5 = e.key === 'F5' || e.code === 'F5' || e.keyCode === 116;
+      const isCtrlOrCmdR = (e.ctrlKey || e.metaKey) && (e.key === 'r' || e.key === 'R' || e.code === 'KeyR' || e.keyCode === 82);
+
+      if (isF5 || isCtrlOrCmdR) {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsRefreshPromptOpen(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown, { capture: true });
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, { capture: true });
+    };
+  }, []);
 
   // Smart Allocation Modal State
   const [isSmartAllocationOpen, setIsSmartAllocationOpen] = useState<boolean>(false);
@@ -454,59 +487,88 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   });
 
   const categoryDebounceTimers = useRef<{ [key: string]: ReturnType<typeof setTimeout> }>({});
+  const lastServerUpdateRef = useRef<string>('');
 
-  // Check backend server status on mount
+  // Check backend server status and pull central household data on mount
   useEffect(() => {
     const initServerCheck = async () => {
       const status = await api.checkStatus();
       if (status) {
         setIsSelfHosted(true);
         setServerStatus(status);
-        if (!status.isSetupCompleted) {
+
+        // Fetch full household financial data directly from the server host
+        let remoteData = await api.getData();
+
+        // Check if server database has empty collections but local browser storage has data from prior testing
+        const localTransactionsStr = localStorage.getItem(LS_PREFIX + 'transactions');
+        const localTransactions = localTransactionsStr ? JSON.parse(localTransactionsStr) : [];
+        const localBillsStr = localStorage.getItem(LS_PREFIX + 'bills');
+        const localBills = localBillsStr ? JSON.parse(localBillsStr) : [];
+        const localGoalsStr = localStorage.getItem(LS_PREFIX + 'goals');
+        const localGoals = localGoalsStr ? JSON.parse(localGoalsStr) : [];
+        const localCategoriesStr = localStorage.getItem(LS_PREFIX + 'categories');
+        const localCategories = localCategoriesStr ? JSON.parse(localCategoriesStr) : [];
+        const localWalletsStr = localStorage.getItem(LS_PREFIX + 'wallets');
+        const localWallets = localWalletsStr ? JSON.parse(localWalletsStr) : [];
+
+        const serverHasTransactions = remoteData?.transactions && remoteData.transactions.length > 0;
+        const serverHasBills = remoteData?.bills && remoteData.bills.length > 0;
+        const serverHasGoals = remoteData?.goals && remoteData.goals.length > 0;
+        const clientHasLocalData = localTransactions.length > 0 || localBills.length > 0 || localGoals.length > 0;
+
+        if (!serverHasTransactions && !serverHasBills && !serverHasGoals && clientHasLocalData) {
+          // Auto-migrate browser's local data directly to server host disk so no data is lost!
+          await api.migrateFromClient({
+            transactions: localTransactions,
+            bills: localBills,
+            goals: localGoals,
+            categories: localCategories.length > 0 ? localCategories : undefined,
+            wallets: localWallets.length > 0 ? localWallets : undefined,
+          });
+          const refreshed = await api.getData();
+          if (refreshed) remoteData = refreshed;
+        }
+
+        if (!status.isSetupCompleted && (!remoteData?.householdSettings?.isSetupCompleted)) {
           setIsInitialSetupModalOpen(true);
         } else {
-          // Fetch family members from server
-          const remoteUsers = await api.getFamilyUsers();
-          if (remoteUsers && remoteUsers.length > 0) {
-            setFamilyUsers(remoteUsers);
+          if (remoteData) {
+            if (remoteData.updatedAt) lastServerUpdateRef.current = remoteData.updatedAt;
+            if (remoteData.householdSettings) setHouseholdSettings(remoteData.householdSettings);
+            if (remoteData.allUsers && remoteData.allUsers.length > 0) {
+              setFamilyUsers(remoteData.allUsers);
+            }
+            if (remoteData.categories && remoteData.categories.length > 0) setCategories(remoteData.categories);
+            if (remoteData.allWallets && remoteData.allWallets.length > 0) {
+              setAllWallets(remoteData.allWallets);
+            } else if (remoteData.wallets && remoteData.wallets.length > 0) {
+              setAllWallets(remoteData.wallets);
+            }
+            if (remoteData.transactions) setTransactions(remoteData.transactions);
+            if (remoteData.bills) setBills(remoteData.bills);
+            if (remoteData.goals) setGoals(remoteData.goals);
+            if (remoteData.activityLogs) setActivityLogs(remoteData.activityLogs);
+            if (remoteData.preferences) setPreferences((prev) => ({ ...prev, ...remoteData.preferences }));
+
+            // Ensure currentUser always has latest role & permissions from server
+            const availableUsers = remoteData.allUsers || [];
             const savedUserStr = localStorage.getItem(LS_PREFIX + 'currentUser');
             const savedUser = savedUserStr ? JSON.parse(savedUserStr) : null;
             if (!savedUser) {
               setCurrentUser(null);
               setIsUserSelectModalOpen(true);
             } else {
-              const matchedUser = remoteUsers.find((u: any) => u.id === savedUser.id);
+              const matchedUser = availableUsers.find((u: any) => u.id === savedUser.id);
               if (!matchedUser) {
                 setCurrentUser(null);
                 setIsUserSelectModalOpen(true);
               } else {
-                // Ensure currentUser always has the latest role & permissions from the server!
                 setCurrentUser(matchedUser);
                 localStorage.setItem(LS_PREFIX + 'currentUser', JSON.stringify(matchedUser));
                 setPreferences((prev) => ({ ...prev, userName: matchedUser.name }));
               }
             }
-          }
-
-          // Fetch full data from server
-          const remoteData = await api.getData();
-          if (remoteData) {
-            if (remoteData.currentUser) {
-              setCurrentUser((prev) => {
-                const updated = { ...(prev || {}), ...remoteData.currentUser };
-                localStorage.setItem(LS_PREFIX + 'currentUser', JSON.stringify(updated));
-                return updated;
-              });
-            }
-            if (remoteData.allUsers && remoteData.allUsers.length > 0) {
-              setFamilyUsers(remoteData.allUsers);
-            }
-            if (remoteData.categories && remoteData.categories.length > 0) setCategories(remoteData.categories);
-            if (remoteData.wallets && remoteData.wallets.length > 0) setAllWallets(remoteData.wallets);
-            if (remoteData.transactions) setTransactions(remoteData.transactions);
-            if (remoteData.bills) setBills(remoteData.bills);
-            if (remoteData.goals) setGoals(remoteData.goals);
-            if (remoteData.activityLogs) setActivityLogs(remoteData.activityLogs);
           }
         }
       } else {
@@ -537,7 +599,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     initServerCheck();
   }, []);
 
-  // Periodic & Focus auto-sync for live household updates (e.g. role promotions, wallet permission changes)
+  // Periodic & Focus auto-sync for live household updates across all clients
   useEffect(() => {
     if (!isSelfHosted) return;
 
@@ -545,38 +607,44 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     const syncLiveUserAndData = async () => {
       try {
-        const savedUserStr = localStorage.getItem(LS_PREFIX + 'currentUser');
-        if (!savedUserStr) return;
-        const currentSaved = JSON.parse(savedUserStr);
-        if (!currentSaved?.id) return;
+        const remoteData = await api.getData();
+        if (!isSubscribed || !remoteData) return;
 
-        const remoteUsers = await api.getFamilyUsers();
-        if (!isSubscribed || !remoteUsers || remoteUsers.length === 0) return;
-
-        const freshUser = remoteUsers.find((u: any) => u.id === currentSaved.id);
-        if (!freshUser) return;
-
-        const roleChanged = freshUser.role !== currentSaved.role;
-        const permsChanged = JSON.stringify(freshUser.permissions) !== JSON.stringify(currentSaved.permissions);
-        const walletsChanged = JSON.stringify(freshUser.allowedWalletIds) !== JSON.stringify(currentSaved.allowedWalletIds);
-        const nameChanged = freshUser.name !== currentSaved.name;
-
-        if (roleChanged || permsChanged || walletsChanged || nameChanged) {
-          setFamilyUsers(remoteUsers);
-          setCurrentUser(freshUser);
-          localStorage.setItem(LS_PREFIX + 'currentUser', JSON.stringify(freshUser));
-          setPreferences((prev) => ({ ...prev, userName: freshUser.name }));
-
-          // Refresh dataset with updated role privileges
-          const remoteData = await api.getData();
-          if (isSubscribed && remoteData) {
-            if (remoteData.wallets) setAllWallets(remoteData.wallets);
-            if (remoteData.transactions) setTransactions(remoteData.transactions);
-            if (remoteData.bills) setBills(remoteData.bills);
-            if (remoteData.goals) setGoals(remoteData.goals);
-            if (remoteData.categories) setCategories(remoteData.categories);
-            if (remoteData.activityLogs) setActivityLogs(remoteData.activityLogs);
+        // Synchronize family users & current user permissions
+        if (remoteData.allUsers && remoteData.allUsers.length > 0) {
+          setFamilyUsers(remoteData.allUsers);
+          const savedUserStr = localStorage.getItem(LS_PREFIX + 'currentUser');
+          if (savedUserStr) {
+            try {
+              const currentSaved = JSON.parse(savedUserStr);
+              const freshUser = remoteData.allUsers.find((u: any) => u.id === currentSaved.id);
+              if (freshUser) {
+                const roleChanged = freshUser.role !== currentSaved.role;
+                const permsChanged = JSON.stringify(freshUser.permissions) !== JSON.stringify(currentSaved.permissions);
+                const walletsChanged = JSON.stringify(freshUser.allowedWalletIds) !== JSON.stringify(currentSaved.allowedWalletIds);
+                const nameChanged = freshUser.name !== currentSaved.name;
+                if (roleChanged || permsChanged || walletsChanged || nameChanged) {
+                  setCurrentUser(freshUser);
+                  localStorage.setItem(LS_PREFIX + 'currentUser', JSON.stringify(freshUser));
+                  setPreferences((prev) => ({ ...prev, userName: freshUser.name }));
+                }
+              }
+            } catch (_) {}
           }
+        }
+
+        // Compare server update timestamp or detect changes
+        const remoteUpdatedAt = remoteData.updatedAt;
+        if (remoteUpdatedAt && remoteUpdatedAt !== lastServerUpdateRef.current) {
+          lastServerUpdateRef.current = remoteUpdatedAt;
+          if (remoteData.wallets) setAllWallets(remoteData.allWallets || remoteData.wallets);
+          if (remoteData.transactions) setTransactions(remoteData.transactions);
+          if (remoteData.bills) setBills(remoteData.bills);
+          if (remoteData.goals) setGoals(remoteData.goals);
+          if (remoteData.categories) setCategories(remoteData.categories);
+          if (remoteData.activityLogs) setActivityLogs(remoteData.activityLogs);
+          if (remoteData.preferences) setPreferences((prev) => ({ ...prev, ...remoteData.preferences }));
+          if (remoteData.householdSettings) setHouseholdSettings(remoteData.householdSettings);
         }
       } catch (err) {
         // Silent background sync
@@ -605,7 +673,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     document.addEventListener('visibilitychange', handleVisibility);
     window.addEventListener('storage', handleStorage);
 
-    const interval = setInterval(syncLiveUserAndData, 5000);
+    const interval = setInterval(syncLiveUserAndData, 4000);
 
     return () => {
       isSubscribed = false;
@@ -771,6 +839,11 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Hard reload (F5 / browser refresh) & window unload listener to automatically save all values
   useEffect(() => {
     const handleBeforeUnload = () => {
+      // If user chose to discard changes on refresh, bypass auto-save
+      if (isBypassingSaveOnUnloadRef.current) {
+        return;
+      }
+
       const current = stateRef.current;
       try {
         localStorage.setItem(LS_PREFIX + 'household', JSON.stringify(current.householdSettings));
@@ -810,34 +883,33 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [isSelfHosted]);
 
   // In-Memory Data Refresh: queries server / local storage without hard page reloads
+  // Automatically saves latest state to host before pulling fresh numbers
   const refreshData = async () => {
     setIsRefreshing(true);
     try {
-      // First save all in-memory values so auto-refresh never reverts user modifications!
+      // When clicked on refresh icon on hotbar or tablet mode, save data as well
       await saveAll();
-      if (isSelfHosted) {
-        const [remoteUsers, remoteData] = await Promise.all([
-          api.getFamilyUsers().catch(() => null),
-          api.getData().catch(() => null),
-        ]);
 
-        if (remoteUsers && remoteUsers.length > 0) {
-          setFamilyUsers(remoteUsers);
-          const savedUserStr = localStorage.getItem(LS_PREFIX + 'currentUser');
-          if (savedUserStr) {
-            try {
-              const savedUser = JSON.parse(savedUserStr);
-              const matched = remoteUsers.find((u: any) => u.id === savedUser.id);
-              if (matched) {
-                setCurrentUser(matched);
-                localStorage.setItem(LS_PREFIX + 'currentUser', JSON.stringify(matched));
-                setPreferences((prev) => ({ ...prev, userName: matched.name }));
-              }
-            } catch (_) {}
-          }
-        }
+      if (isSelfHosted) {
+        const remoteData = await api.getData().catch(() => null);
 
         if (remoteData) {
+          if (remoteData.allUsers && remoteData.allUsers.length > 0) {
+            setFamilyUsers(remoteData.allUsers);
+            const savedUserStr = localStorage.getItem(LS_PREFIX + 'currentUser');
+            if (savedUserStr) {
+              try {
+                const savedUser = JSON.parse(savedUserStr);
+                const matched = remoteData.allUsers.find((u: any) => u.id === savedUser.id);
+                if (matched) {
+                  setCurrentUser(matched);
+                  localStorage.setItem(LS_PREFIX + 'currentUser', JSON.stringify(matched));
+                  setPreferences((prev) => ({ ...prev, userName: matched.name }));
+                }
+              } catch (_) {}
+            }
+          }
+
           if (remoteData.householdSettings) {
             setHouseholdSettings(remoteData.householdSettings);
           }
@@ -848,15 +920,14 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
               return updated;
             });
           }
-          if (remoteData.allUsers && remoteData.allUsers.length > 0) {
-            setFamilyUsers(remoteData.allUsers);
-          }
           if (remoteData.categories && remoteData.categories.length > 0) setCategories(remoteData.categories);
-          if (remoteData.wallets && remoteData.wallets.length > 0) setAllWallets(remoteData.wallets);
+          if (remoteData.allWallets && remoteData.allWallets.length > 0) setAllWallets(remoteData.allWallets);
+          else if (remoteData.wallets && remoteData.wallets.length > 0) setAllWallets(remoteData.wallets);
           if (remoteData.transactions) setTransactions(remoteData.transactions);
           if (remoteData.bills) setBills(remoteData.bills);
           if (remoteData.goals) setGoals(remoteData.goals);
           if (remoteData.activityLogs) setActivityLogs(remoteData.activityLogs);
+          if (remoteData.preferences) setPreferences((prev) => ({ ...prev, ...remoteData.preferences }));
         }
       } else {
         // Standalone / Offline mode: re-read localStorage
@@ -1069,26 +1140,33 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     // Update wallet balance ONLY if transaction is not historical / already happened
+    let nextWallets = stateRef.current.allWallets;
     if (newTx.walletId && !newTx.alreadyHappened) {
-      setAllWallets((prevWallets) =>
-        prevWallets.map((w) => {
-          if (w.id === newTx.walletId) {
-            if (w.type === 'credit') {
-              return {
-                ...w,
-                balance: newTx.type === 'expense' ? w.balance + newTx.amount : w.balance - newTx.amount,
-              };
-            } else {
-              return {
-                ...w,
-                balance: newTx.type === 'income' ? w.balance + newTx.amount : w.balance - newTx.amount,
-              };
-            }
+      nextWallets = stateRef.current.allWallets.map((w) => {
+        if (w.id === newTx.walletId) {
+          if (w.type === 'credit') {
+            return {
+              ...w,
+              balance: newTx.type === 'expense' ? w.balance + newTx.amount : w.balance - newTx.amount,
+            };
+          } else {
+            return {
+              ...w,
+              balance: newTx.type === 'income' ? w.balance + newTx.amount : w.balance - newTx.amount,
+            };
           }
-          return w;
-        })
-      );
+        }
+        return w;
+      });
+      setAllWallets(nextWallets);
     }
+
+    // Keep stateRef immediately updated so instant saveAll() calls capture this transaction
+    stateRef.current = {
+      ...stateRef.current,
+      transactions: [newTx, ...stateRef.current.transactions],
+      allWallets: nextWallets,
+    };
 
     logActivity(
       'create',
@@ -1550,6 +1628,12 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         currentAmount: targetGoal.currentAmount + amount,
         contributions: [contribution, ...(targetGoal.contributions || [])],
       });
+      if (sourceWalletId && targetWalletId && sourceWalletId !== targetWalletId) {
+        const srcW = allWallets.find((w) => w.id === sourceWalletId);
+        const tgtW = allWallets.find((w) => w.id === targetWalletId);
+        if (srcW) api.updateWallet(sourceWalletId, { balance: srcW.balance - amount });
+        if (tgtW) api.updateWallet(targetWalletId, { balance: tgtW.balance + amount });
+      }
     }
 
     logActivity('rebalance', 'goal', `Deposited ${amount} ${preferences.currencySymbol} into '${targetGoal.name}'`);
@@ -1668,11 +1752,20 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       userName: currentUser?.name,
     }));
     setTransactions((prev) => [...formatted, ...prev]);
+    if (isSelfHosted) {
+      api.bulkImportTransactions(formatted);
+    }
     triggerConfetti();
   };
 
   const updatePreferences = (updates: Partial<UserPreferences>) => {
-    setPreferences((prev) => ({ ...prev, ...updates }));
+    setPreferences((prev) => {
+      const next = { ...prev, ...updates };
+      if (isSelfHosted) {
+        api.updatePreferences(next);
+      }
+      return next;
+    });
   };
 
   const resetToDemoData = () => {
@@ -1685,14 +1778,37 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setBills(demoBills);
     setGoals(demoGoals);
     setAllWallets(demoWallets);
+    if (isSelfHosted) {
+      api.saveAll({
+        householdSettings: demoHouseholdSettings,
+        users: demoFamilyUsers,
+        preferences: demoPreferences,
+        categories: demoCategories,
+        transactions: demoTransactions,
+        bills: demoBills,
+        goals: demoGoals,
+        wallets: demoWallets,
+      });
+    }
   };
 
   const clearToFreshSlate = () => {
     setTransactions([]);
-    setCategories(initialCategories.map((c) => ({ ...c, spent: 0 })));
+    const freshCats = initialCategories.map((c) => ({ ...c, spent: 0 }));
+    setCategories(freshCats);
     setBills([]);
     setGoals([]);
-    setAllWallets(allWallets.map((w) => ({ ...w, balance: 0 })));
+    const freshWallets = allWallets.map((w) => ({ ...w, balance: 0 }));
+    setAllWallets(freshWallets);
+    if (isSelfHosted) {
+      api.saveAll({
+        transactions: [],
+        categories: freshCats,
+        bills: [],
+        goals: [],
+        wallets: freshWallets,
+      });
+    }
   };
 
   const exportDataJson = () => {
@@ -1729,6 +1845,9 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (data.bills) setBills(data.bills);
       if (data.goals) setGoals(data.goals);
       if (data.wallets) setAllWallets(data.wallets);
+      if (isSelfHosted) {
+        api.saveAll(data);
+      }
       return true;
     } catch (e) {
       console.error('Failed to import JSON', e);
@@ -1868,7 +1987,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  const completeInitialSetup = (setupData: {
+  const completeInitialSetup = async (setupData: {
     householdName: string;
     currency: string;
     currencySymbol: string;
@@ -1899,7 +2018,15 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setIsInitialSetupModalOpen(false);
 
     if (isSelfHosted) {
-      api.setupHousehold(setupData);
+      const res = await api.setupHousehold(setupData);
+      if (res.success && res.user) {
+        setCurrentUser(res.user);
+        localStorage.setItem(LS_PREFIX + 'currentUser', JSON.stringify(res.user));
+        setFamilyUsers([res.user]);
+        if (res.token) {
+          api.setToken(res.token);
+        }
+      }
     }
   };
 
@@ -1999,6 +2126,9 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         closeSmartAllocation,
         isRefreshing,
         refreshData,
+        isRefreshPromptOpen,
+        setIsRefreshPromptOpen,
+        bypassSaveOnUnload,
         saveAll,
         saveBudgetsState,
         saveTransactionsState,

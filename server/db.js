@@ -29,6 +29,14 @@ const DEFAULT_STATE = {
   goals: [],
   activityLogs: [],
   merchantRules: {},
+  preferences: {
+    userName: 'Admin',
+    currency: 'NOK',
+    currencySymbol: 'kr',
+    selectedMonth: '',
+    tabletAutoRefreshEnabled: true,
+    tabletRefreshIntervalMinutes: 5,
+  },
 };
 
 export class Database {
@@ -50,7 +58,23 @@ export class Database {
     try {
       if (fs.existsSync(DB_FILE)) {
         const raw = fs.readFileSync(DB_FILE, 'utf-8');
-        return { ...DEFAULT_STATE, ...JSON.parse(raw) };
+        const parsed = JSON.parse(raw);
+        return {
+          ...DEFAULT_STATE,
+          ...parsed,
+          householdSettings: {
+            ...DEFAULT_STATE.householdSettings,
+            ...(parsed.householdSettings || {}),
+          },
+          preferences: {
+            ...DEFAULT_STATE.preferences,
+            ...(parsed.preferences || {}),
+          },
+          merchantRules: {
+            ...DEFAULT_STATE.merchantRules,
+            ...(parsed.merchantRules || {}),
+          },
+        };
       }
     } catch (err) {
       console.error('Failed to read database, falling back to defaults:', err.message);

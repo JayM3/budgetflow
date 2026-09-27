@@ -63,6 +63,8 @@ const DEFAULT_MERCHANT_MAP: Record<string, string> = {
   'dividend': 'Income',
 };
 
+import { api } from '../services/api';
+
 const STORAGE_KEY = 'budgetflow_learned_merchants';
 
 export const getLearnedMerchants = (): Record<string, string> => {
@@ -74,12 +76,21 @@ export const getLearnedMerchants = (): Record<string, string> => {
   }
 };
 
+export const setLearnedMerchants = (rules: Record<string, string>): void => {
+  try {
+    const current = getLearnedMerchants();
+    const merged = { ...current, ...rules };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+  } catch (_) {}
+};
+
 export const saveLearnedMerchant = (merchant: string, category: string): void => {
   try {
     const current = getLearnedMerchants();
     const cleanMerchant = merchant.trim().toLowerCase();
     current[cleanMerchant] = category;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
+    api.saveMerchantRule(cleanMerchant, category).catch(() => {});
   } catch (e) {
     console.error('Failed to save learned merchant rule to localStorage', e);
   }

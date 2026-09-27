@@ -32,6 +32,18 @@ export const api = {
     localStorage.removeItem(TOKEN_KEY);
   },
 
+  getAuthHeaders(): Record<string, string> {
+    const token = this.getToken();
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+  },
+
   async checkStatus(): Promise<ServerStatus | null> {
     try {
       const res = await fetch(`${API_BASE}/api/status`, {
@@ -116,12 +128,12 @@ export const api = {
 
   async getData(): Promise<any | null> {
     const token = this.getToken();
-    if (!token) return null;
-
     try {
-      const res = await fetch(`${API_BASE}/api/data`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const headers: Record<string, string> = { Accept: 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      const res = await fetch(`${API_BASE}/api/data`, { headers });
       if (res.ok) {
         return await res.json();
       }
@@ -516,17 +528,70 @@ export const api = {
   saveAllKeepAlive(payload: any): void {
     const token = this.getToken();
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
       fetch(`${API_BASE}/api/save-all`, {
         method: 'POST',
         keepalive: true,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers,
         body: JSON.stringify(payload),
       }).catch(() => {});
     } catch {
       // ignore
+    }
+  },
+
+  async bulkImportTransactions(transactions: any[]): Promise<boolean> {
+    try {
+      const res = await fetch(`${API_BASE}/api/transactions/bulk`, {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({ transactions }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
+  async updatePreferences(preferences: any): Promise<boolean> {
+    try {
+      const res = await fetch(`${API_BASE}/api/preferences`, {
+        method: 'PUT',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(preferences),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
+  async saveMerchantRule(merchant: string, category: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${API_BASE}/api/merchant-rules`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ merchant, category }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
+  async migrateFromClient(clientState: any): Promise<boolean> {
+    try {
+      const res = await fetch(`${API_BASE}/api/sync/migrate-from-client`, {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(clientState),
+      });
+      return res.ok;
+    } catch {
+      return false;
     }
   },
 

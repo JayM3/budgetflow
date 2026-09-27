@@ -38,6 +38,7 @@ import {
   Edit2,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
+import { api } from '../../services/api';
 import { FamilyUser, Wallet as WalletType, TransactionType } from '../../types/finance';
 import { PatternLock } from '../auth/PatternLock';
 import { comparePatterns } from '../../utils/patternAuth';
@@ -73,11 +74,13 @@ export const TabletKioskView: React.FC = () => {
     categories,
     addTransaction,
     updateWallet,
+    saveAll,
     setIsTabletMode,
     setIsGuideOpenWithId,
     triggerConfetti,
     isRefreshing,
     refreshData,
+    isSelfHosted,
   } = useFinance();
 
 
@@ -183,7 +186,7 @@ export const TabletKioskView: React.FC = () => {
     resetIdleTimer();
   };
 
-  const handleSaveEditBalance = (e?: React.FormEvent) => {
+  const handleSaveEditBalance = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!editingWalletForBalance) return;
     const val = parseFloat(editBalanceInput);
@@ -196,6 +199,12 @@ export const TabletKioskView: React.FC = () => {
       ...editingWalletForBalance,
       balance: val,
     });
+
+    try {
+      await saveAll();
+    } catch (saveErr) {
+      console.error('Failed to auto-save wallet balance:', saveErr);
+    }
 
     setEditBalanceSuccess(`Updated ${editingWalletForBalance.name} balance!`);
     resetIdleTimer();
@@ -219,10 +228,14 @@ export const TabletKioskView: React.FC = () => {
     resetIdleTimer();
   };
 
-  const handleBalancesPatternVerified = (pattern: number[]) => {
+  const handleBalancesPatternVerified = async (pattern: number[]) => {
     if (!activeBalancesUser) return false;
 
-    if (activeBalancesUser.patternSequence && activeBalancesUser.patternSequence.length > 0) {
+    if (isSelfHosted) {
+      const res = await api.verifyPattern(activeBalancesUser.id, pattern);
+      if (!res.success) return false;
+      if (res.token) api.setToken(res.token);
+    } else if (activeBalancesUser.patternSequence && activeBalancesUser.patternSequence.length > 0) {
       const match = comparePatterns(activeBalancesUser.patternSequence, pattern);
       if (!match) return false;
     }
@@ -323,11 +336,15 @@ export const TabletKioskView: React.FC = () => {
     resetIdleTimer();
   };
 
-  const handlePatternVerified = (pattern: number[]) => {
+  const handlePatternVerified = async (pattern: number[]) => {
     if (!activeKioskUser) return false;
 
     // Pattern matching
-    if (activeKioskUser.patternSequence && activeKioskUser.patternSequence.length > 0) {
+    if (isSelfHosted) {
+      const res = await api.verifyPattern(activeKioskUser.id, pattern);
+      if (!res.success) return false;
+      if (res.token) api.setToken(res.token);
+    } else if (activeKioskUser.patternSequence && activeKioskUser.patternSequence.length > 0) {
       const match = comparePatterns(activeKioskUser.patternSequence, pattern);
       if (!match) return false;
     }
@@ -366,7 +383,7 @@ export const TabletKioskView: React.FC = () => {
     resetIdleTimer();
   };
 
-  const handleSubmitTransaction = (e?: React.FormEvent) => {
+  const handleSubmitTransaction = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (amount <= 0) return;
 
@@ -382,6 +399,13 @@ export const TabletKioskView: React.FC = () => {
       userId: activeKioskUser?.id,
       userName: activeKioskUser?.name,
     });
+
+    // Automatically save data to server host immediately on adding transaction in tablet mode
+    try {
+      await saveAll();
+    } catch (saveErr) {
+      console.error('Failed to auto-save tablet transaction:', saveErr);
+    }
 
     triggerConfetti();
     setActionSuccessMessage(

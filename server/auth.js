@@ -25,8 +25,48 @@ export function verifyPattern(patternSequence, savedHash, salt) {
   );
 }
 
-// In-memory sessions store
-const sessions = new Map();
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const DATA_DIR = path.join(__dirname, 'data');
+const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
+
+// Sessions store with file persistence across daemon restarts
+function loadSessionsFromDisk() {
+  const map = new Map();
+  try {
+    if (fs.existsSync(SESSIONS_FILE)) {
+      const raw = fs.readFileSync(SESSIONS_FILE, 'utf-8');
+      const obj = JSON.parse(raw);
+      for (const [token, data] of Object.entries(obj)) {
+        map.set(token, data);
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load sessions from disk:', e.message);
+  }
+  return map;
+}
+
+const sessions = loadSessionsFromDisk();
+
+function saveSessionsToDisk() {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    const obj = {};
+    for (const [token, data] of sessions.entries()) {
+      obj[token] = data;
+    }
+    fs.writeFileSync(SESSIONS_FILE, JSON.stringify(obj, null, 2), 'utf-8');
+  } catch (e) {
+    console.error('Failed to save sessions to disk:', e.message);
+  }
+}
 
 export function createSession(user) {
   const token = crypto.randomBytes(32).toString('hex');
@@ -38,6 +78,7 @@ export function createSession(user) {
     createdAt: Date.now(),
   };
   sessions.set(token, sessionData);
+  saveSessionsToDisk();
   return token;
 }
 
@@ -47,7 +88,10 @@ export function getSession(token) {
 }
 
 export function removeSession(token) {
-  if (token) sessions.delete(token);
+  if (token) {
+    sessions.delete(token);
+    saveSessionsToDisk();
+  }
 }
 
 export function updateSessionsForUser(userId, updates) {
@@ -56,6 +100,7 @@ export function updateSessionsForUser(userId, updates) {
       sessions.set(token, { ...session, ...updates });
     }
   }
+  saveSessionsToDisk();
 }
 
 export function removeSessionsForUser(userId) {
@@ -64,4 +109,5 @@ export function removeSessionsForUser(userId) {
       sessions.delete(token);
     }
   }
+  saveSessionsToDisk();
 }
