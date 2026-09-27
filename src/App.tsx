@@ -20,10 +20,12 @@ import { WhatIfSimulatorModal } from './components/features/WhatIfSimulatorModal
 import { CsvImportModal } from './components/features/CsvImportModal';
 import { CalendarSyncModal } from './components/features/CalendarSyncModal';
 import { ActivityLogModal } from './components/features/ActivityLogModal';
+import { AddRecurringModal } from './components/features/AddRecurringModal';
 
 const AppContent: React.FC = () => {
   const {
     activeView,
+    setActiveView,
     isTabletMode,
     isInitialSetupModalOpen,
     isUserSelectModalOpen,
@@ -37,6 +39,13 @@ const AppContent: React.FC = () => {
     completeInitialSetup,
     isSelfHosted,
   } = useFinance();
+
+  // Guard member views: members can only see dashboard, transactions, wallets, settings
+  React.useEffect(() => {
+    if (currentUser?.role === 'member' && !['dashboard', 'transactions', 'wallets', 'settings'].includes(activeView)) {
+      setActiveView('dashboard');
+    }
+  }, [currentUser, activeView, setActiveView]);
 
   // If in Perpetual Tablet Mode, render full-screen Kiosk interface
   if (isTabletMode) {
@@ -70,7 +79,7 @@ const AppContent: React.FC = () => {
         };
       case 'bills':
         return {
-          title: 'Bills and Income',
+          title: 'Recurring',
           subtitle: 'Track recurring bills and income streams, and sync payment schedules with your device calendar.',
         };
       case 'goals':
@@ -130,6 +139,7 @@ const AppContent: React.FC = () => {
 
         {/* Feature Modals */}
         <QuickAddModal />
+        <AddRecurringModal />
         <WhatIfSimulatorModal />
         <CsvImportModal />
         <CalendarSyncModal />

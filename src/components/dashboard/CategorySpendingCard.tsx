@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ShoppingBag, Home, Car, Gamepad2, Zap, Utensils, HeartPulse } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatCurrency } from '../../utils/formatters';
@@ -14,10 +14,24 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 };
 
 export const CategorySpendingCard: React.FC = () => {
-  const { categories, preferences, setActiveView } = useFinance();
+  const { categories, transactions, preferences, setActiveView, currentUser } = useFinance();
 
-  // Highlight the core categories
-  const displayCategories = categories.slice(0, 5);
+  const isMember = currentUser?.role === 'member';
+
+  // Compute spending dynamically from transactions (scoped to member's wallets)
+  const displayCategories = useMemo(() => {
+    return categories.map((cat) => {
+      const spent = transactions
+        .filter((t) => t.type === 'expense' && t.category.toLowerCase() === cat.name.toLowerCase())
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      return {
+        ...cat,
+        spent: Math.round(spent),
+      };
+    }).slice(0, 5);
+  }, [categories, transactions]);
+
   const maxAmount = Math.max(...displayCategories.map(c => Math.max(c.spent, c.allocated)), 1);
 
   return (
@@ -28,7 +42,7 @@ export const CategorySpendingCard: React.FC = () => {
           Spending by Category
         </h2>
         <button
-          onClick={() => setActiveView('budgets')}
+          onClick={() => setActiveView(isMember ? 'transactions' : 'budgets')}
           className="text-xs font-semibold text-cyan-600 hover:text-cyan-700 transition-colors"
         >
           View all

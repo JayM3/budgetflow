@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingBag, Gamepad2, Car, Zap, ArrowDownLeft, Landmark } from 'lucide-react';
+import { ShoppingBag, Gamepad2, Car, Zap, ArrowDownLeft, Landmark, Plus } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatCurrencyExact, formatDateDisplay } from '../../utils/formatters';
 import { Transaction } from '../../types/finance';
@@ -99,7 +99,7 @@ const getCategoryPill = (category: string) => {
 };
 
 export const RecentTransactionsCard: React.FC = () => {
-  const { transactions, preferences, setActiveView } = useFinance();
+  const { transactions, preferences, setActiveView, setIsQuickAddOpen } = useFinance();
 
   // Show 5 most recent transactions matching the screenshot
   const recent = transactions.slice(0, 5);
@@ -111,12 +111,21 @@ export const RecentTransactionsCard: React.FC = () => {
         <h2 className="text-base font-bold text-slate-800 tracking-tight">
           Recent Transactions
         </h2>
-        <button
-          onClick={() => setActiveView('transactions')}
-          className="text-xs font-semibold text-cyan-600 hover:text-cyan-700 transition-colors"
-        >
-          View all
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsQuickAddOpen(true)}
+            className="px-3 py-1.5 bg-gradient-to-r from-teal-600 via-cyan-600 to-sky-600 hover:from-teal-700 hover:via-cyan-700 hover:to-sky-700 active:scale-95 text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center gap-1"
+          >
+            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span>Add Transaction</span>
+          </button>
+          <button
+            onClick={() => setActiveView('transactions')}
+            className="text-xs font-semibold text-cyan-600 hover:text-cyan-700 transition-colors px-2 py-1"
+          >
+            View all
+          </button>
+        </div>
       </div>
 
       {recent.length === 0 ? (
@@ -125,7 +134,7 @@ export const RecentTransactionsCard: React.FC = () => {
             No transactions recorded yet
           </p>
           <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
-            Tap <strong className="text-teal-600">+ Add Expense</strong> above to log your first purchase or income deposit.
+            Tap <strong className="text-teal-600">+ Add Transaction</strong> above to log your first purchase or income deposit.
           </p>
         </div>
       ) : (

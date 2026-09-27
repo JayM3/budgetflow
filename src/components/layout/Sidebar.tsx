@@ -10,6 +10,7 @@ import {
   Settings,
   Sparkles,
   Users,
+  History,
   Tablet,
 } from 'lucide-react';
 import logoImg from '../../assets/logo.png';
@@ -25,7 +26,7 @@ const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'budgets', label: 'Budgets', icon: PieChart },
   { id: 'transactions', label: 'Transactions', icon: ArrowLeftRight },
-  { id: 'bills', label: 'Bills and Income', icon: CalendarDays },
+  { id: 'bills', label: 'Recurring', icon: CalendarDays },
   { id: 'goals', label: 'Goals', icon: Target },
   { id: 'reports', label: 'Reports', icon: BarChart3 },
   { id: 'wallets', label: 'Wallets', icon: Wallet },
@@ -33,7 +34,15 @@ const navItems: NavItem[] = [
 ];
 
 export const Sidebar: React.FC = () => {
-  const { activeView, setActiveView, setIsWhatIfOpen, setIsTabletMode } = useFinance();
+  const { activeView, setActiveView, setIsWhatIfOpen, setIsTabletMode, setIsActivityLogOpen, currentUser } = useFinance();
+
+  const isMember = currentUser?.role === 'member';
+  const visibleNavItems = navItems.filter((item) => {
+    if (isMember) {
+      return ['dashboard', 'transactions', 'wallets'].includes(item.id);
+    }
+    return true;
+  });
 
   return (
     <aside className="w-64 bg-white/80 backdrop-blur-xl border-r border-slate-200/70 min-h-screen flex flex-col justify-between p-6 select-none shrink-0 transition-all z-20">
@@ -62,7 +71,7 @@ export const Sidebar: React.FC = () => {
 
         {/* Navigation Items */}
         <nav className="space-y-1.5">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeView === item.id;
             return (
@@ -108,6 +117,14 @@ export const Sidebar: React.FC = () => {
         >
           <Tablet className="w-4 h-4 text-teal-400" />
           <span>Launch Tablet Kiosk</span>
+        </button>
+
+        <button
+          onClick={() => setIsActivityLogOpen(true)}
+          className="w-full flex items-center gap-3.5 px-4 py-2.5 rounded-2xl font-medium text-sm text-slate-600 hover:text-cyan-900 hover:bg-cyan-50/70 transition-all duration-200"
+        >
+          <History className="w-5 h-5 text-slate-500" />
+          <span>Activity Log</span>
         </button>
 
         <button

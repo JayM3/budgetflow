@@ -104,6 +104,7 @@ interface FinanceContextType {
   categories: BudgetCategory[];
   transactions: Transaction[];
   bills: Bill[];
+  allBills: Bill[];
   goals: SavingsGoal[];
   wallets: Wallet[];
   allWallets: Wallet[]; // Unfiltered for Admin view
@@ -198,6 +199,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const [isWhatIfOpen, setIsWhatIfOpen] = useState(false);
   const [isCsvImportOpen, setIsCsvImportOpen] = useState(false);
+  const [isAddRecurringOpen, setIsAddRecurringOpen] = useState(false);
   const [isTabletMode, setIsTabletMode] = useState(false);
   const [activeGuideId, setActiveGuideId] = useState<GuideId | null>(null);
 
@@ -427,23 +429,34 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [activeView]);
 
   // Wallet Permissions Filter:
-  // If currentUser is a member with allowedWalletIds, filter wallets and transactions
+  // If currentUser is a member with allowedWalletIds, filter wallets, transactions, and bills
   const wallets = useMemo(() => {
-    if (!currentUser || currentUser.role === 'admin' || currentUser.allowedWalletIds.length === 0) {
+    if (!currentUser || currentUser.role === 'admin') {
       return allWallets;
     }
-    return allWallets.filter((w) => currentUser.allowedWalletIds.includes(w.id));
+    const allowed = currentUser.allowedWalletIds || [];
+    return allWallets.filter((w) => allowed.includes(w.id));
   }, [allWallets, currentUser]);
 
   const visibleTransactions = useMemo(() => {
-    if (!currentUser || currentUser.role === 'admin' || currentUser.allowedWalletIds.length === 0) {
+    if (!currentUser || currentUser.role === 'admin') {
       return transactions;
     }
-    const allowedSet = new Set(currentUser.allowedWalletIds);
+    const allowedSet = new Set(currentUser.allowedWalletIds || []);
     return transactions.filter(
-      (t) => !t.walletId || allowedSet.has(t.walletId) || t.userId === currentUser.id
+      (t) => t.walletId && allowedSet.has(t.walletId)
     );
   }, [transactions, currentUser]);
+
+  const visibleBills = useMemo(() => {
+    if (!currentUser || currentUser.role === 'admin') {
+      return bills;
+    }
+    const allowedSet = new Set(currentUser.allowedWalletIds || []);
+    return bills.filter(
+      (b) => b.walletId && allowedSet.has(b.walletId)
+    );
+  }, [bills, currentUser]);
 
   // Recalculate category spending dynamically
   useEffect(() => {
@@ -508,7 +521,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return calculateSafeToSpend(totalBudget, totalSpent, new Date(), spentThisWeek);
   }, [totalBudget, totalSpent, spentThisWeek]);
 
-  const unpaidBills = bills.filter((b) => !b.isPaid);
+  const unpaidBills = visibleBills.filter((b) => !b.isPaid && b.type !== 'income');
   const upcomingBillsCount = unpaidBills.length;
   const upcomingBillsTotal = unpaidBills.reduce((acc, b) => acc + b.amount, 0);
 
@@ -983,6 +996,9 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     );
     if (currentUser?.id === updatedUser.id) {
       setCurrentUser(updatedUser);
+      if (updatedUser.role === 'member' && !['dashboard', 'transactions', 'wallets', 'settings'].includes(activeView)) {
+        setActiveView('dashboard');
+      }
     }
     if (isSelfHosted) {
       api.updateMember(updatedUser.id, updatedUser);
@@ -1001,9 +1017,13 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const switchUser = (user: FamilyUser) => {
-    setCurrentUser(user);
-    setPreferences((prev) => ({ ...prev, userName: user.name }));
+    const latestUser = familyUsers.find((u) => u.id === user.id) || user;
+    setCurrentUser(latestUser);
+    setPreferences((prev) => ({ ...prev, userName: latestUser.name }));
     setIsUserSelectModalOpen(false);
+    if (latestUser.role === 'member' && !['dashboard', 'transactions', 'wallets', 'settings'].includes(activeView)) {
+      setActiveView('dashboard');
+    }
   };
 
   const logoutUser = () => {
@@ -1101,6 +1121,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setIsWhatIfOpen,
         isCsvImportOpen,
         setIsCsvImportOpen,
+        isAddRecurringOpen,
+        setIsAddRecurringOpen,
         isSelfHosted,
         serverStatus,
         isTabletMode,
@@ -1118,7 +1140,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         preferences,
         categories,
         transactions: visibleTransactions,
-        bills,
+        bills: visibleBills,
+        allBills: bills,
         goals,
         wallets,
         allWallets,

@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import {
-  Search,
   Bell,
   ChevronDown,
-  Plus,
   Sparkles,
   AlertCircle,
   Tablet,
@@ -17,7 +15,6 @@ import {
   History,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
-import { formatCurrencyExact } from '../../utils/formatters';
 
 interface HeaderProps {
   title: string;
@@ -27,9 +24,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
   const {
     preferences,
-    setIsQuickAddOpen,
     upcomingBillsCount,
-    safeToSpendMetrics,
     setActiveView,
     resetToDemoData,
     clearToFreshSlate,
@@ -109,47 +104,6 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
         >
           <CalendarDays className="w-3.5 h-3.5 text-cyan-600" />
           <span className="hidden lg:inline">Calendar Sync</span>
-        </button>
-
-        {/* Activity Audit Log Button */}
-        <button
-          onClick={() => setIsActivityLogOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-2 bg-white/90 backdrop-blur border border-slate-200 text-slate-700 hover:text-teal-700 hover:border-teal-300 rounded-xl text-xs font-semibold shadow-sm transition-all"
-          title="View detailed timestamped audit logs of all actions"
-        >
-          <History className="w-3.5 h-3.5 text-teal-600" />
-          <span className="hidden lg:inline">Activity Log</span>
-        </button>
-
-        {/* Weekly Velocity Badge */}
-        <div
-          onClick={() => setActiveView('budgets')}
-          className="hidden xl:flex items-center gap-2 px-3.5 py-2 rounded-xl bg-cyan-50/80 border border-cyan-200/90 text-cyan-900 text-xs font-semibold cursor-pointer hover:bg-cyan-100/80 transition-all shadow-sm"
-          title="Weekly Safe-to-Spend velocity allowance for the rest of this month"
-        >
-          <div className="w-2 h-2 rounded-full bg-cyan-500 animate-ping" />
-          <span>Safe: {formatCurrencyExact(safeToSpendMetrics.safePerWeek, preferences.currencySymbol)}/wk</span>
-        </div>
-
-        {/* Quick Add Button */}
-        <button
-          onClick={() => setIsQuickAddOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-600 via-cyan-600 to-sky-600 hover:from-teal-700 hover:via-cyan-700 hover:to-sky-700 text-white rounded-xl text-xs sm:text-sm font-semibold shadow-md shadow-cyan-600/25 active:scale-95 transition-all"
-        >
-          <Plus className="w-4 h-4 stroke-[2.5]" />
-          <span className="hidden sm:inline">Add Expense</span>
-          <kbd className="hidden sm:inline-block ml-1 px-1.5 py-0.5 text-[10px] bg-white/20 rounded font-mono">
-            ⌘K
-          </kbd>
-        </button>
-
-        {/* Search Omnibar Button */}
-        <button
-          onClick={() => setIsQuickAddOpen(true)}
-          className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white/90 backdrop-blur border border-slate-200/80 flex items-center justify-center text-slate-600 hover:text-cyan-600 hover:border-cyan-300 hover:shadow-sm transition-all"
-          title="Search or Quick Add (Ctrl+K)"
-        >
-          <Search className="w-4 h-4" />
         </button>
 
         {/* Notification Bell */}
