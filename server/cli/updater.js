@@ -354,24 +354,49 @@ function extractArchive(archivePath, destDir) {
     fs.mkdirSync(destDir, { recursive: true });
   }
 
-  // Use tar if available (standard on Linux, macOS, Android Termux, and Windows 10+)
+  let lastError = null;
+
+  // 1. Try tar (handles .tar.gz, .tgz, .tar natively on Linux/Termux, and .zip with BSD tar on Win/Mac)
   try {
     execSync(`tar -xf "${archivePath}" -C "${destDir}"`, { stdio: 'ignore' });
     return true;
-  } catch (tarErr) {
-    // If on Windows and tar fails, try PowerShell Expand-Archive for zip files
-    if (process.platform === 'win32' && archivePath.endsWith('.zip')) {
-      try {
-        execSync(`powershell -NoProfile -Command "Expand-Archive -LiteralPath '${archivePath}' -DestinationPath '${destDir}' -Force"`, {
-          stdio: 'ignore',
-        });
-        return true;
-      } catch (psErr) {
-        throw new Error(`Archive extraction failed: ${tarErr.message} / ${psErr.message}`);
-      }
-    }
-    throw tarErr;
+  } catch (err) {
+    lastError = err;
   }
+
+  // 2. Try unzip (standard on Linux / Termux / macOS for .zip files)
+  try {
+    execSync(`unzip -q -o "${archivePath}" -d "${destDir}"`, { stdio: 'ignore' });
+    return true;
+  } catch (_) {}
+
+  // 3. Try busybox unzip (common on Android Termux and minimal environments)
+  try {
+    execSync(`busybox unzip -q -o "${archivePath}" -d "${destDir}"`, { stdio: 'ignore' });
+    return true;
+  } catch (_) {}
+
+  // 4. If on Windows, try PowerShell Expand-Archive
+  if (process.platform === 'win32') {
+    try {
+      execSync(`powershell -NoProfile -Command "Expand-Archive -LiteralPath '${archivePath}' -DestinationPath '${destDir}' -Force"`, {
+        stdio: 'ignore',
+      });
+      return true;
+    } catch (_) {}
+  }
+
+  // 5. Try Python's built-in zipfile module
+  try {
+    execSync(`python3 -m zipfile -e "${archivePath}" "${destDir}"`, { stdio: 'ignore' });
+    return true;
+  } catch (_) {}
+  try {
+    execSync(`python -m zipfile -e "${archivePath}" "${destDir}"`, { stdio: 'ignore' });
+    return true;
+  } catch (_) {}
+
+  throw new Error(`Archive extraction failed: could not unpack archive with tar, unzip, or powershell. (${lastError?.message || 'unknown error'})`);
 }
 
 /**
@@ -502,12 +527,27 @@ export async function runUpdate(options = {}, onProgress = () => {}) {
     fs.mkdirSync(tmpDir, { recursive: true });
 
     try {
+      const tarAsset = checkStatus.release?.assets?.find((a) => a.name && (a.name.endsWith('.tar.gz') || a.name.endsWith('.tgz')));
       const zipAsset = checkStatus.release?.assets?.find((a) => a.name && a.name.endsWith('.zip'));
-      const candidateUrls = [
-        zipAsset?.browser_download_url,
-        `https://github.com/${repoInfo.fullName}/archive/refs/tags/${tagName}.zip`,
-        checkStatus.release?.zipballUrl,
-      ].filter(Boolean);
+
+      // On Linux/Termux, prefer tarballs so native tar extracts with zero dependencies; on Windows prefer zip
+      const candidateUrls = process.platform !== 'win32'
+        ? [
+            tarAsset?.browser_download_url,
+            checkStatus.release?.tarballUrl,
+            `https://github.com/${repoInfo.fullName}/archive/refs/tags/${tagName}.tar.gz`,
+            zipAsset?.browser_download_url,
+            `https://github.com/${repoInfo.fullName}/archive/refs/tags/${tagName}.zip`,
+            checkStatus.release?.zipballUrl,
+          ].filter(Boolean)
+        : [
+            zipAsset?.browser_download_url,
+            `https://github.com/${repoInfo.fullName}/archive/refs/tags/${tagName}.zip`,
+            checkStatus.release?.zipballUrl,
+            tarAsset?.browser_download_url,
+            checkStatus.release?.tarballUrl,
+            `https://github.com/${repoInfo.fullName}/archive/refs/tags/${tagName}.tar.gz`,
+          ].filter(Boolean);
 
       let downloaded = false;
       let lastErr = null;
@@ -589,11 +629,14 @@ export async function runUpdate(options = {}, onProgress = () => {}) {
     console.log(c.cyan(`📥 Downloading latest repository archive (${channel})...`));
     reportProgress(30, 'download', `Downloading latest repository archive (${channel})...`, 2, 6);
     const tmpDir = path.join(os.tmpdir(), `budgetflow-repo-${Date.now()}`);
-    const archivePath = path.join(tmpDir, 'repo.zip');
     fs.mkdirSync(tmpDir, { recursive: true });
 
     try {
-      const archiveUrl = `https://github.com/${repoInfo.fullName}/archive/refs/heads/${channel}.zip`;
+      const archiveUrl = process.platform !== 'win32'
+        ? `https://github.com/${repoInfo.fullName}/archive/refs/heads/${channel}.tar.gz`
+        : `https://github.com/${repoInfo.fullName}/archive/refs/heads/${channel}.zip`;
+      const archiveExt = process.platform !== 'win32' ? 'repo.tar.gz' : 'repo.zip';
+      const archivePath = path.join(tmpDir, archiveExt);
       await downloadArchive(archiveUrl, archivePath, onProgress);
 
       reportProgress(48, 'sync', 'Extracting repository archive...', 3, 6);
