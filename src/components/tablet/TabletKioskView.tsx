@@ -31,12 +31,13 @@ import {
   HeartPulse,
   Landmark,
   Zap,
+  Target,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { FamilyUser, Wallet as WalletType } from '../../types/finance';
 import { PatternLock } from '../auth/PatternLock';
 import { comparePatterns } from '../../utils/patternAuth';
-import { formatCurrency, formatCurrencyExact } from '../../utils/formatters';
+import { formatCurrency, formatCurrencyExact, formatDateDisplay } from '../../utils/formatters';
 import { GuideButton } from '../guide/GuideButton';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -62,6 +63,7 @@ export const TabletKioskView: React.FC = () => {
     upcomingBillsCount,
     upcomingBillsTotal,
     bills,
+    goals,
     familyUsers,
     wallets,
     categories,
@@ -153,6 +155,43 @@ export const TabletKioskView: React.FC = () => {
     localStorage.setItem('budgetflow_tablet_scale', next);
   };
 
+  // View Balances Modal Flow (with 9-Dot Pattern Verification)
+  const [isViewBalancesOpen, setIsViewBalancesOpen] = useState(false);
+  const [viewBalancesStep, setViewBalancesStep] = useState<'select-user' | 'verify-pattern' | 'wallets-view'>('select-user');
+  const [activeBalancesUser, setActiveBalancesUser] = useState<FamilyUser | null>(null);
+
+  const handleOpenViewBalances = () => {
+    setIsViewBalancesOpen(true);
+    setViewBalancesStep('select-user');
+    setActiveBalancesUser(null);
+    resetIdleTimer();
+  };
+
+  const handleSelectBalancesUser = (user: FamilyUser) => {
+    setActiveBalancesUser(user);
+    setViewBalancesStep('verify-pattern');
+    resetIdleTimer();
+  };
+
+  const handleBalancesPatternVerified = (pattern: number[]) => {
+    if (!activeBalancesUser) return false;
+
+    if (activeBalancesUser.patternSequence && activeBalancesUser.patternSequence.length > 0) {
+      const match = comparePatterns(activeBalancesUser.patternSequence, pattern);
+      if (!match) return false;
+    }
+
+    setViewBalancesStep('wallets-view');
+    resetIdleTimer();
+    return true;
+  };
+
+  const handleCloseViewBalances = () => {
+    setIsViewBalancesOpen(false);
+    setViewBalancesStep('select-user');
+    setActiveBalancesUser(null);
+  };
+
   // Kiosk Logging Modal Flow
   const [isKioskActionOpen, setIsKioskActionOpen] = useState(false);
   const [kioskStep, setKioskStep] = useState<'select-user' | 'verify-pattern' | 'amount-step' | 'category-step'>('select-user');
@@ -171,9 +210,10 @@ export const TabletKioskView: React.FC = () => {
 
   const resetIdleTimer = () => {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    if (isKioskActionOpen) {
+    if (isKioskActionOpen || isViewBalancesOpen) {
       idleTimerRef.current = setTimeout(() => {
         handleCloseKioskAction();
+        handleCloseViewBalances();
       }, 25000);
     }
   };
@@ -274,6 +314,23 @@ export const TabletKioskView: React.FC = () => {
       ? wallets
       : wallets.filter((w) => activeKioskUser.allowedWalletIds.includes(w.id))
     : wallets;
+
+  // Filter wallets for view balances user
+  const userWalletsForBalances = activeBalancesUser
+    ? activeBalancesUser.role === 'admin' || activeBalancesUser.allowedWalletIds.length === 0
+      ? wallets
+      : wallets.filter((w) => activeBalancesUser.allowedWalletIds.includes(w.id))
+    : [];
+
+  const totalUserBalance = userWalletsForBalances.reduce(
+    (acc, w) => acc + (w.type === 'credit' ? -w.balance : w.balance),
+    0
+  );
+
+  // Goals summary metrics
+  const totalGoalCurrent = goals.reduce((acc, g) => acc + g.currentAmount, 0);
+  const totalGoalTarget = goals.reduce((acc, g) => acc + g.targetAmount, 0);
+  const totalGoalPercent = totalGoalTarget > 0 ? Math.round((totalGoalCurrent / totalGoalTarget) * 100) : 0;
 
   const isJumbo = scaleMode === 'jumbo';
 
@@ -382,118 +439,14 @@ export const TabletKioskView: React.FC = () => {
         </div>
       </div>
 
-      {/* CENTER GLANCE: Three Big Ambient Cards */}
+      {/* CENTER GLANCE: 2-WIDGET AMBIENT GRID */}
+      {/* Notice: Daily Safe-to-Spend & Household Budget removed; Upcoming Bills & Goals List displayed */}
       <div
-        className={`grid grid-cols-1 md:grid-cols-3 gap-6 my-6 relative z-10 transition-all ${
+        className={`grid grid-cols-1 md:grid-cols-2 gap-6 my-6 relative z-10 transition-all ${
           isJumbo ? 'gap-8 my-8' : 'gap-6 my-6'
         }`}
       >
-        {/* CARD 1: Safe-to-Spend Daily Pace */}
-        <div
-          className={`bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl flex flex-col justify-between transition-all ${
-            isJumbo ? 'p-8 sm:p-9' : 'p-6'
-          }`}
-        >
-          <div>
-            <div className="flex items-center justify-between text-teal-300 mb-2">
-              <span
-                className={`font-bold uppercase tracking-wider flex items-center space-x-2 ${
-                  isJumbo ? 'text-sm' : 'text-xs'
-                }`}
-              >
-                <Flame className={`${isJumbo ? 'w-5 h-5' : 'w-4 h-4'} text-emerald-400`} />
-                <span>Daily Safe-to-Spend</span>
-              </span>
-              <span
-                className={`px-2.5 py-0.5 rounded-full font-bold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 ${
-                  isJumbo ? 'text-xs' : 'text-[10px]'
-                }`}
-              >
-                {safeToSpendMetrics.paceLabel}
-              </span>
-            </div>
-            <div
-              className={`font-black text-white tracking-tight ${
-                isJumbo ? 'text-4xl sm:text-6xl' : 'text-3xl sm:text-4xl'
-              }`}
-            >
-              {formatCurrency(safeToSpendMetrics.safePerDay, preferences.currency)}
-              <span className={`font-medium text-slate-400 ${isJumbo ? 'text-base' : 'text-sm'}`}>
-                {' '}
-                / day
-              </span>
-            </div>
-          </div>
-          <div
-            className={`mt-4 pt-4 border-t border-white/10 text-slate-300 flex items-center justify-between ${
-              isJumbo ? 'text-sm' : 'text-xs'
-            }`}
-          >
-            <span>{safeToSpendMetrics.daysRemainingInMonth} days left this month</span>
-            <span className="text-emerald-400 font-semibold">
-              {formatCurrency(safeToSpendMetrics.safePerDay * 7, preferences.currency)} / wk
-            </span>
-          </div>
-        </div>
-
-        {/* CARD 2: Monthly Budget Health */}
-        <div
-          className={`bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl flex flex-col justify-between transition-all ${
-            isJumbo ? 'p-8 sm:p-9' : 'p-6'
-          }`}
-        >
-          <div>
-            <div className="flex items-center justify-between text-teal-300 mb-2">
-              <span
-                className={`font-bold uppercase tracking-wider flex items-center space-x-2 ${
-                  isJumbo ? 'text-sm' : 'text-xs'
-                }`}
-              >
-                <Wallet className={`${isJumbo ? 'w-5 h-5' : 'w-4 h-4'} text-teal-400`} />
-                <span>Household Budget</span>
-              </span>
-              <span className={`font-bold text-slate-200 ${isJumbo ? 'text-sm' : 'text-xs'}`}>
-                {spentPercentage.toFixed(0)}% Used
-              </span>
-            </div>
-            <div
-              className={`font-black text-white tracking-tight ${
-                isJumbo ? 'text-4xl sm:text-6xl' : 'text-3xl sm:text-4xl'
-              }`}
-            >
-              {formatCurrency(remainingBudget, preferences.currency)}
-              <span className={`font-medium text-slate-400 ${isJumbo ? 'text-base' : 'text-sm'}`}>
-                {' '}
-                left
-              </span>
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <div className={`w-full rounded-full bg-white/10 overflow-hidden ${isJumbo ? 'h-4' : 'h-3'}`}>
-              <div
-                className={`h-full rounded-full transition-all duration-500 ${
-                  spentPercentage > 90
-                    ? 'bg-rose-500'
-                    : spentPercentage > 75
-                    ? 'bg-amber-400'
-                    : 'bg-gradient-to-r from-teal-400 to-emerald-400'
-                }`}
-                style={{ width: `${Math.min(spentPercentage, 100)}%` }}
-              />
-            </div>
-            <div
-              className={`flex justify-between text-slate-400 mt-2 font-medium ${
-                isJumbo ? 'text-xs' : 'text-[11px]'
-              }`}
-            >
-              <span>Spent: {formatCurrency(totalSpent, preferences.currency)}</span>
-              <span>Total: {formatCurrency(totalBudget, preferences.currency)}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* CARD 3: Upcoming Bills Radar */}
+        {/* WIDGET 1: Upcoming Bills Radar */}
         <div
           className={`bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl flex flex-col justify-between transition-all ${
             isJumbo ? 'p-8 sm:p-9' : 'p-6'
@@ -526,20 +479,31 @@ export const TabletKioskView: React.FC = () => {
             </div>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-white/10 space-y-1.5">
-            {bills.filter((b) => !b.isPaid).slice(0, 2).map((bill) => (
-              <div
-                key={bill.id}
-                className={`flex items-center justify-between text-slate-300 ${
-                  isJumbo ? 'text-sm' : 'text-xs'
-                }`}
-              >
-                <span className="truncate max-w-[160px]">{bill.name}</span>
-                <span className="font-semibold text-white">
-                  {formatCurrency(bill.amount, preferences.currency)}
-                </span>
-              </div>
-            ))}
+          <div className="mt-4 pt-3 border-t border-white/10 space-y-2 max-h-[220px] overflow-y-auto pr-1">
+            {bills
+              .filter((b) => !b.isPaid)
+              .slice(0, 4)
+              .map((bill) => (
+                <div
+                  key={bill.id}
+                  className={`flex items-center justify-between text-slate-300 p-2.5 rounded-xl bg-white/5 border border-white/5 ${
+                    isJumbo ? 'text-sm' : 'text-xs'
+                  }`}
+                >
+                  <div className="min-w-0 pr-2">
+                    <span className="font-semibold text-white block truncate">{bill.name}</span>
+                    <span className="text-[10px] text-slate-400 font-medium">Due {formatDateDisplay(bill.dueDate)}</span>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="font-bold text-white block">
+                      {formatCurrency(bill.amount, preferences.currency)}
+                    </span>
+                    {bill.autoPay && (
+                      <span className="text-[9px] font-bold text-emerald-400 uppercase">AutoPay</span>
+                    )}
+                  </div>
+                </div>
+              ))}
             {bills.filter((b) => !b.isPaid).length === 0 && (
               <p className={`text-slate-400 italic ${isJumbo ? 'text-sm' : 'text-xs'}`}>
                 All bills paid!
@@ -547,9 +511,90 @@ export const TabletKioskView: React.FC = () => {
             )}
           </div>
         </div>
+
+        {/* WIDGET 2: LIST OF SAVINGS GOALS (NEW WIDGET) */}
+        <div
+          className={`bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl flex flex-col justify-between transition-all ${
+            isJumbo ? 'p-8 sm:p-9' : 'p-6'
+          }`}
+        >
+          <div>
+            <div className="flex items-center justify-between text-teal-300 mb-2">
+              <span
+                className={`font-bold uppercase tracking-wider flex items-center space-x-2 ${
+                  isJumbo ? 'text-sm' : 'text-xs'
+                }`}
+              >
+                <Target className={`${isJumbo ? 'w-5 h-5' : 'w-4 h-4'} text-emerald-400`} />
+                <span>Savings Goals</span>
+              </span>
+              <span
+                className={`px-2.5 py-0.5 rounded-full font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 ${
+                  isJumbo ? 'text-xs' : 'text-[10px]'
+                }`}
+              >
+                {goals.length} Active
+              </span>
+            </div>
+            <div className="flex items-baseline space-x-2">
+              <div
+                className={`font-black text-white tracking-tight ${
+                  isJumbo ? 'text-4xl sm:text-6xl' : 'text-3xl sm:text-4xl'
+                }`}
+              >
+                {formatCurrency(totalGoalCurrent, preferences.currency)}
+              </div>
+              <span className={`font-medium text-slate-400 ${isJumbo ? 'text-base' : 'text-xs'}`}>
+                of {formatCurrency(totalGoalTarget, preferences.currency)} ({totalGoalPercent}%)
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-white/10 space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
+            {goals.map((goal) => {
+              const pct = goal.targetAmount > 0
+                ? Math.min(100, Math.round((goal.currentAmount / goal.targetAmount) * 100))
+                : 0;
+              return (
+                <div
+                  key={goal.id}
+                  className={`p-3 rounded-2xl bg-white/5 border border-white/5 space-y-1.5 ${
+                    isJumbo ? 'text-sm' : 'text-xs'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: goal.color }} />
+                      <span className="font-bold text-white truncate">{goal.name}</span>
+                    </div>
+                    <span className="font-extrabold text-emerald-400 shrink-0">{pct}%</span>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{ width: `${pct}%`, backgroundColor: goal.color }}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between text-[10px] text-slate-400">
+                    <span>{formatCurrency(goal.currentAmount, preferences.currency)} saved</span>
+                    <span>Target: {formatCurrency(goal.targetAmount, preferences.currency)}</span>
+                  </div>
+                </div>
+              );
+            })}
+            {goals.length === 0 && (
+              <p className={`text-slate-400 italic ${isJumbo ? 'text-sm' : 'text-xs'}`}>
+                No active savings goals recorded.
+              </p>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* BOTTOM ACTION BAR: Seamless Fast-Add for Tablet */}
+      {/* BOTTOM ACTION BAR */}
       <div
         className={`bg-white/10 backdrop-blur-2xl rounded-3xl border border-white/15 shadow-2xl relative z-10 flex flex-col sm:flex-row items-center justify-between gap-4 transition-all ${
           isJumbo ? 'p-6 sm:p-8' : 'p-5 sm:p-6'
@@ -576,22 +621,236 @@ export const TabletKioskView: React.FC = () => {
               Family Hub Ready
             </p>
             <p className={`text-teal-300 ${isJumbo ? 'text-xs' : 'text-[11px]'}`}>
-              Tap below to log expenses with 9-dot pattern check
+              Tap to view balances or log an expense
             </p>
           </div>
         </div>
 
-        {/* Primary Action Button */}
-        <button
-          onClick={handleOpenLogExpense}
-          className={`w-full sm:w-auto bg-gradient-to-r from-teal-400 via-teal-500 to-emerald-500 hover:from-teal-300 hover:to-emerald-400 text-slate-950 font-black rounded-2xl shadow-xl shadow-teal-500/25 flex items-center justify-center space-x-3 transition-all active:scale-95 group ${
-            isJumbo ? 'px-10 py-5 text-xl' : 'px-8 py-4 text-base sm:text-lg'
-          }`}
-        >
-          <PlusCircle className="w-6 h-6 text-slate-950 group-hover:rotate-90 transition-transform duration-300" />
-          <span>+ Log Expense (Touch)</span>
-        </button>
+        {/* Action Buttons: View balances & Log Expense */}
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          {/* NEW BUTTON: View Balances */}
+          <button
+            onClick={handleOpenViewBalances}
+            className={`flex-1 sm:flex-none bg-white/10 hover:bg-white/20 border border-white/20 hover:border-teal-400/50 text-white font-bold rounded-2xl shadow-lg flex items-center justify-center space-x-2 transition-all active:scale-95 group ${
+              isJumbo ? 'px-8 py-5 text-lg' : 'px-6 py-4 text-sm sm:text-base'
+            }`}
+          >
+            <Eye className="w-5 h-5 text-teal-300 group-hover:scale-110 transition-transform" />
+            <span>View balances</span>
+          </button>
+
+          {/* UPDATED BUTTON: Log Expense (No '+' and no '(Touch)') */}
+          <button
+            onClick={handleOpenLogExpense}
+            className={`flex-1 sm:flex-none bg-gradient-to-r from-teal-400 via-teal-500 to-emerald-500 hover:from-teal-300 hover:to-emerald-400 text-slate-950 font-black rounded-2xl shadow-xl shadow-teal-500/25 flex items-center justify-center space-x-2.5 transition-all active:scale-95 group ${
+              isJumbo ? 'px-10 py-5 text-xl' : 'px-8 py-4 text-base sm:text-lg'
+            }`}
+          >
+            <PlusCircle className="w-6 h-6 text-slate-950 group-hover:rotate-90 transition-transform duration-300" />
+            <span>Log Expense</span>
+          </button>
+        </div>
       </div>
+
+      {/* ========================================================
+          VIEW BALANCES MODAL (with 9-Dot Pattern Verification)
+          ======================================================== */}
+      {isViewBalancesOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-100 relative text-slate-800">
+            {/* Close button */}
+            <button
+              onClick={handleCloseViewBalances}
+              className="absolute top-5 right-5 p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* STEP 1: Select User */}
+            {viewBalancesStep === 'select-user' && (
+              <div className="text-center space-y-5">
+                <div>
+                  <div className="w-12 h-12 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center mx-auto mb-2">
+                    <Wallet className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-slate-900">Which user wishes to view?</h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Select your profile to view your personal and shared balances.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {familyUsers.map((user) => (
+                    <button
+                      key={user.id}
+                      type="button"
+                      onClick={() => handleSelectBalancesUser(user)}
+                      className="flex flex-col items-center p-4 rounded-2xl border-2 border-slate-100 hover:border-teal-400 hover:bg-teal-50/50 transition-all transform hover:scale-105 shadow-sm"
+                    >
+                      <div
+                        className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-sm mb-2"
+                        style={{ backgroundColor: `${user.color}20` }}
+                      >
+                        <span>{user.avatar}</span>
+                      </div>
+                      <span className="font-bold text-slate-800 text-sm">{user.name}</span>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 mt-0.5">
+                        {user.role}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* STEP 2: Pattern Verification */}
+            {viewBalancesStep === 'verify-pattern' && activeBalancesUser && (
+              <div className="text-center space-y-4">
+                <div className="flex items-center justify-center space-x-2">
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                    style={{ backgroundColor: `${activeBalancesUser.color}20` }}
+                  >
+                    <span>{activeBalancesUser.avatar}</span>
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800">
+                    {activeBalancesUser.name}, draw your pattern
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Verify your pattern to unlock wallet balances
+                </p>
+
+                <PatternLock
+                  mode="verify"
+                  size={260}
+                  onComplete={handleBalancesPatternVerified}
+                  onCancel={() => setViewBalancesStep('select-user')}
+                />
+              </div>
+            )}
+
+            {/* STEP 3: Show Wallets */}
+            {viewBalancesStep === 'wallets-view' && activeBalancesUser && (
+              <div className="space-y-5 text-left">
+                {/* Header */}
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-sm"
+                      style={{ backgroundColor: `${activeBalancesUser.color}20` }}
+                    >
+                      <span>{activeBalancesUser.avatar}</span>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-extrabold text-slate-900 text-lg">
+                          {activeBalancesUser.name}
+                        </h4>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-teal-50 text-teal-700 border border-teal-200">
+                          {activeBalancesUser.role}
+                        </span>
+                        <span className="text-[10px] text-teal-600 font-bold uppercase">
+                          Pattern Verified ✓
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400">
+                        {activeBalancesUser.role === 'admin'
+                          ? 'Viewing all household accounts & wallets'
+                          : `Viewing ${userWalletsForBalances.length} authorized personal wallet(s)`}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setViewBalancesStep('select-user')}
+                    className="text-xs font-bold text-teal-600 hover:text-teal-700 hover:underline"
+                  >
+                    Switch User
+                  </button>
+                </div>
+
+                {/* Net Balance Banner */}
+                <div className="p-4 bg-gradient-to-r from-teal-500/10 via-cyan-500/10 to-emerald-500/10 rounded-2xl border border-teal-200/60 flex items-center justify-between">
+                  <div>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-teal-800 block">
+                      Total Net Balance
+                    </span>
+                    <span className="text-2xl font-black text-slate-900">
+                      {formatCurrency(totalUserBalance, preferences.currency)}
+                    </span>
+                  </div>
+                  <div className="text-right text-xs text-slate-500 font-semibold">
+                    {userWalletsForBalances.length} Wallet(s) Shown
+                  </div>
+                </div>
+
+                {/* Wallets List */}
+                <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
+                  {userWalletsForBalances.map((w) => {
+                    const isCredit = w.type === 'credit';
+                    return (
+                      <div
+                        key={w.id}
+                        className="p-4 rounded-2xl border border-slate-200/80 hover:border-teal-400/80 bg-slate-50/50 hover:bg-teal-50/30 transition-all flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-xs font-bold text-sm"
+                            style={{ backgroundColor: w.color }}
+                          >
+                            <Wallet className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <span className="font-bold text-slate-900 text-sm block">
+                              {w.name}
+                            </span>
+                            <span className="text-[11px] text-slate-400 font-mono uppercase">
+                              {w.isShared ? 'Shared • ' + w.type : w.type}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span
+                            className={`text-base font-black ${
+                              isCredit ? 'text-rose-600' : 'text-slate-900'
+                            } block`}
+                          >
+                            {isCredit ? '-' : ''}
+                            {formatCurrency(w.balance, preferences.currency)}
+                          </span>
+                          {w.limit ? (
+                            <span className="text-[10px] text-slate-400 font-semibold">
+                              Limit: {formatCurrency(w.limit, preferences.currency)}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-emerald-600 font-bold uppercase">
+                              {w.type}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {userWalletsForBalances.length === 0 && (
+                    <p className="text-center py-6 text-xs text-slate-400 italic">
+                      No wallets configured for this profile.
+                    </p>
+                  )}
+                </div>
+
+                <div className="pt-2 flex justify-end">
+                  <button
+                    onClick={handleCloseViewBalances}
+                    className="px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-all"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* KIOSK LOGGING MODAL OVERLAY */}
       {isKioskActionOpen && (
