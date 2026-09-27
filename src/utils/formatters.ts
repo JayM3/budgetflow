@@ -155,3 +155,82 @@ export const formatDateRangeDisplay = (startDate: string | null, endDate: string
   return 'All Dates';
 };
 
+/**
+ * Returns today's date in local time as YYYY-MM-DD
+ */
+export const getTodayISO = (): string => {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+/**
+ * Calculates the next due date for a recurring commitment based on frequency:
+ * - 'weekly': +7 days
+ * - 'biweekly': +14 days
+ * - 'monthly': +1 month (safely handles shorter months, e.g. Jan 31 -> Feb 28)
+ * - 'yearly': +1 year (safely handles leap years, e.g. Feb 29 -> Feb 28)
+ */
+export const calculateNextDueDate = (
+  currentDueDateStr: string,
+  frequency: 'monthly' | 'yearly' | 'weekly' | 'biweekly' = 'monthly'
+): string => {
+  if (!currentDueDateStr) return getTodayISO();
+  const parts = currentDueDateStr.split('T')[0].split('-');
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10) - 1; // 0-indexed
+  const d = parseInt(parts[2], 10);
+
+  if (isNaN(y) || isNaN(m) || isNaN(d)) return getTodayISO();
+
+  const pad = (n: number) => String(n).padStart(2, '0');
+
+  if (frequency === 'weekly') {
+    const dt = new Date(y, m, d + 7);
+    return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+  }
+  if (frequency === 'biweekly') {
+    const dt = new Date(y, m, d + 14);
+    return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+  }
+  if (frequency === 'yearly') {
+    const targetY = y + 1;
+    const maxDays = new Date(targetY, m + 1, 0).getDate();
+    const targetD = Math.min(d, maxDays);
+    return `${targetY}-${pad(m + 1)}-${pad(targetD)}`;
+  }
+
+  // Monthly:
+  let targetY = y;
+  let targetM = m + 1;
+  if (targetM > 11) {
+    targetY += Math.floor(targetM / 12);
+    targetM = targetM % 12;
+  }
+  const maxDays = new Date(targetY, targetM + 1, 0).getDate();
+  const targetD = Math.min(d, maxDays);
+  return `${targetY}-${pad(targetM + 1)}-${pad(targetD)}`;
+};
+
+/**
+ * Advances a recurring due date forward until it is strictly in the future (> todayStr)
+ * This avoids duplicate intermediate instances when catching up overdue recurring items.
+ */
+export const advanceDueDateToFuture = (
+  currentDueDateStr: string,
+  frequency: 'monthly' | 'yearly' | 'weekly' | 'biweekly' = 'monthly',
+  referenceTodayStr?: string
+): string => {
+  const todayStr = referenceTodayStr || getTodayISO();
+  let nextDueDate = calculateNextDueDate(currentDueDateStr, frequency);
+  let iterations = 0;
+  while (nextDueDate <= todayStr && iterations < 100) {
+    nextDueDate = calculateNextDueDate(nextDueDate, frequency);
+    iterations++;
+  }
+  return nextDueDate;
+};
+
+

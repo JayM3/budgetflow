@@ -53,6 +53,7 @@ export interface Transaction {
   walletId?: string;
   notes?: string;
   isRecurring?: boolean;
+  alreadyHappened?: boolean; // When true, historical transaction that does not alter wallet balance
   userId?: string;
   userName?: string;
 }
