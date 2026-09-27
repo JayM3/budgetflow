@@ -273,11 +273,17 @@ function syncFilesPreservingData(sourceDir, destDir) {
  * Download archive file (handles HTTP redirects and streams chunks with progress)
  */
 async function downloadArchive(url, targetPath, onProgress) {
+  const headers = {
+    'User-Agent': `BudgetFlow-CLI/${getCurrentVersion()}`,
+    Accept: 'application/vnd.github+json, application/octet-stream, */*',
+  };
+
+  if (process.env.GITHUB_TOKEN && url.includes('api.github.com')) {
+    headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+  }
+
   const res = await fetch(url, {
-    headers: {
-      'User-Agent': `BudgetFlow-CLI/${getCurrentVersion()}`,
-      Accept: 'application/octet-stream',
-    },
+    headers,
     redirect: 'follow',
   });
 
@@ -302,17 +308,29 @@ async function downloadArchive(url, targetPath, onProgress) {
           if (done) break;
           fileStream.write(value);
           receivedBytes += value.length;
-          if (contentLength > 0 && typeof onProgress === 'function') {
-            const pct = Math.min(100, Math.round((receivedBytes / contentLength) * 100));
-            // Map 0-100% download into 25% - 48% overall
-            const overall = Math.round(25 + (pct * 0.23));
-            onProgress({
-              step: 2,
-              totalSteps: 6,
-              percent: overall,
-              stage: 'download',
-              message: `Downloading update archive (${(receivedBytes / 1024 / 1024).toFixed(1)} MB / ${(contentLength / 1024 / 1024).toFixed(1)} MB)...`,
-            });
+          if (typeof onProgress === 'function') {
+            const mb = (receivedBytes / 1024 / 1024).toFixed(1);
+            if (contentLength > 0) {
+              const pct = Math.min(100, Math.round((receivedBytes / contentLength) * 100));
+              // Map 0-100% download into 25% - 48% overall
+              const overall = Math.round(25 + (pct * 0.23));
+              onProgress({
+                step: 2,
+                totalSteps: 6,
+                percent: overall,
+                stage: 'download',
+                message: `Downloading update archive (${mb} MB / ${(contentLength / 1024 / 1024).toFixed(1)} MB)...`,
+              });
+            } else {
+              const synth = Math.min(46, Math.round(25 + (receivedBytes / (4 * 1024 * 1024)) * 20));
+              onProgress({
+                step: 2,
+                totalSteps: 6,
+                percent: synth,
+                stage: 'download',
+                message: `Downloading update archive (${mb} MB)...`,
+              });
+            }
           }
         }
         fileStream.end();
@@ -484,10 +502,28 @@ export async function runUpdate(options = {}, onProgress = () => {}) {
     fs.mkdirSync(tmpDir, { recursive: true });
 
     try {
-      const downloadUrl = checkStatus.release?.zipballUrl ||
-        `https://github.com/${repoInfo.fullName}/archive/refs/tags/${tagName}.zip`;
+      const zipAsset = checkStatus.release?.assets?.find((a) => a.name && a.name.endsWith('.zip'));
+      const candidateUrls = [
+        zipAsset?.browser_download_url,
+        `https://github.com/${repoInfo.fullName}/archive/refs/tags/${tagName}.zip`,
+        checkStatus.release?.zipballUrl,
+      ].filter(Boolean);
 
-      await downloadArchive(downloadUrl, archivePath, onProgress);
+      let downloaded = false;
+      let lastErr = null;
+      for (const dlUrl of candidateUrls) {
+        try {
+          await downloadArchive(dlUrl, archivePath, onProgress);
+          downloaded = true;
+          break;
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+
+      if (!downloaded) {
+        throw lastErr || new Error(`Failed to download release archive for ${tagName}`);
+      }
       reportProgress(48, 'sync', 'Extracting release package...', 3, 6);
       console.log(c.dim('Extracting release archive...'));
       const extractDir = path.join(tmpDir, 'extracted');
