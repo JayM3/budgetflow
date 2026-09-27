@@ -1295,16 +1295,21 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const toggleBillPaid = (billId: string) => {
+    let nextPaid = false;
     setBills((prev) =>
       prev.map((b) => {
         if (b.id === billId) {
-          const nextPaid = !b.isPaid;
+          nextPaid = !b.isPaid;
           if (nextPaid) triggerConfetti();
           return { ...b, isPaid: nextPaid, paidByUserId: currentUser?.id };
         }
         return b;
       })
     );
+
+    if (isSelfHosted) {
+      api.updateBill(billId, { isPaid: nextPaid, paidByUserId: currentUser?.id });
+    }
   };
 
   const updateCategoryAllocation = (categoryId: string, amount: number) => {

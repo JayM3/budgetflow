@@ -770,6 +770,7 @@ app.put('/api/bills/:id', authenticate, (req, res) => {
     frequency: updates.frequency !== undefined ? updates.frequency : bill.frequency,
     type: updates.type !== undefined ? updates.type : bill.type,
     walletId: updates.walletId !== undefined ? updates.walletId : bill.walletId,
+    paidByUserId: updates.paidByUserId !== undefined ? updates.paidByUserId : bill.paidByUserId,
   };
 
   const updatedBills = state.bills.map((b) => (b.id === req.params.id ? updatedBill : b));
