@@ -243,9 +243,19 @@ export const TransactionsView: React.FC = () => {
                   <tr key={tx.id} className="hover:bg-slate-50/80 transition-colors group">
                     <td className="p-4">
                       <div className="flex flex-col">
-                        <span className="text-slate-800 font-semibold text-xs">
-                          {formatDateDisplay(tx.date)}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-slate-800 font-semibold text-xs">
+                            {formatDateDisplay(tx.date)}
+                          </span>
+                          {tx.date.split('T')[0] > new Date().toISOString().split('T')[0] && (
+                            <span
+                              className="text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-cyan-100 text-cyan-800 border border-cyan-200"
+                              title="Scheduled / Upcoming transaction"
+                            >
+                              Upcoming
+                            </span>
+                          )}
+                        </div>
                         {timeString ? (
                           <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1 mt-0.5">
                             <Clock className="w-2.5 h-2.5 text-slate-400" />

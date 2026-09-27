@@ -16,6 +16,7 @@ import {
   Landmark,
   Wallet,
   Zap,
+  Calendar,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatCurrency, formatCurrencyExact } from '../../utils/formatters';
@@ -53,8 +54,14 @@ export const QuickAddModal: React.FC = () => {
   const [merchant, setMerchant] = useState('');
   const [category, setCategory] = useState(categories[0]?.name || 'Groceries');
   const [walletId, setWalletId] = useState(wallets[0]?.id || '');
+  const [hasDate, setHasDate] = useState(false);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const isFutureDate = date > todayStr;
+  const isPastDate = date < todayStr;
+  const isTodayDate = date === todayStr;
 
   // Sync default category and wallet
   useEffect(() => {
@@ -90,12 +97,14 @@ export const QuickAddModal: React.FC = () => {
     if (e) e.preventDefault();
     if (amount <= 0) return;
 
+    const finalDate = hasDate ? date : new Date().toISOString().split('T')[0];
+
     addTransaction({
       merchant: merchant.trim() || (type === 'income' ? 'Income Deposit' : category),
       amount,
       category: type === 'income' ? 'Income' : category,
       type,
-      date,
+      date: finalDate,
       walletId,
       notes: notes.trim() || undefined,
       userId: currentUser?.id,
@@ -109,6 +118,8 @@ export const QuickAddModal: React.FC = () => {
     setAmount(0);
     setMerchant('');
     setNotes('');
+    setHasDate(false);
+    setDate(new Date().toISOString().split('T')[0]);
   };
 
   return (
@@ -270,11 +281,69 @@ export const QuickAddModal: React.FC = () => {
               />
             </div>
 
+            {/* Date Checkmark Toggle */}
+            <div className="pt-0.5">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={hasDate}
+                  onChange={(e) => setHasDate(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500 cursor-pointer accent-teal-600"
+                />
+                <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-teal-600" />
+                  <span>Specify date (happened or upcoming)</span>
+                </span>
+              </label>
+
+              {hasDate && (
+                <div className="mt-2.5 p-3 bg-slate-50 rounded-2xl border border-slate-200/80 animate-in fade-in slide-in-from-top-1 duration-150 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      Transaction Date
+                    </span>
+                    {isFutureDate && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-800 border border-cyan-200 flex items-center gap-1">
+                        <span>⏳ Will happen / Scheduled</span>
+                      </span>
+                    )}
+                    {isPastDate && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-1">
+                        <span>🕒 Happened</span>
+                      </span>
+                    )}
+                    {isTodayDate && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                        <span>✓ Today</span>
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  />
+                  <p className="text-[11px] text-slate-400 font-medium">
+                    {isFutureDate
+                      ? 'This transaction is scheduled for a future date.'
+                      : isPastDate
+                      ? 'This transaction occurred on a past date.'
+                      : 'This transaction took place today.'}
+                  </p>
+                </div>
+              )}
+            </div>
+
             {/* Next Step Button */}
             <div className="pt-2 flex items-center justify-end gap-3">
               <button
                 type="button"
-                onClick={() => setIsQuickAddOpen(false)}
+                onClick={() => {
+                  setIsQuickAddOpen(false);
+                  setStep(1);
+                  setHasDate(false);
+                }}
                 className="px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800"
               >
                 Cancel
@@ -297,7 +366,7 @@ export const QuickAddModal: React.FC = () => {
           <div className="p-6 space-y-5 animate-in fade-in duration-150">
             {/* Amount Summary Pill */}
             <div className="p-3 bg-teal-50 rounded-2xl border border-teal-200/80 flex items-center justify-between">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs font-bold text-teal-800 uppercase tracking-wider">
                   Amount:
                 </span>
@@ -309,11 +378,25 @@ export const QuickAddModal: React.FC = () => {
                     ({merchant})
                   </span>
                 )}
+                {hasDate && (
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                      isFutureDate
+                        ? 'bg-cyan-100 text-cyan-800 border-cyan-200'
+                        : isPastDate
+                        ? 'bg-amber-100 text-amber-800 border-amber-200'
+                        : 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                    }`}
+                  >
+                    {isFutureDate ? '⏳ Upcoming: ' : isPastDate ? '🕒 Past: ' : '📅 '}
+                    {date}
+                  </span>
+                )}
               </div>
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="text-xs font-bold text-teal-700 hover:underline"
+                className="text-xs font-bold text-teal-700 hover:underline shrink-0"
               >
                 Change
               </button>
