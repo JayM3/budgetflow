@@ -445,9 +445,32 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const spentPercentage = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : 0;
   const savingsRate = totalIncome > 0 ? Math.max(0, Math.round(((totalIncome - totalSpent) / totalIncome) * 100)) : 0;
 
+  const spentThisWeek = useMemo(() => {
+    const now = new Date();
+    const day = now.getDay();
+    const diffToMon = now.getDate() - day + (day === 0 ? -6 : 1);
+    const mon = new Date(now.getFullYear(), now.getMonth(), diffToMon);
+    const sun = new Date(mon);
+    sun.setDate(mon.getDate() + 6);
+
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const monISO = `${mon.getFullYear()}-${pad(mon.getMonth() + 1)}-${pad(mon.getDate())}`;
+    const sunISO = `${sun.getFullYear()}-${pad(sun.getMonth() + 1)}-${pad(sun.getDate())}`;
+
+    const raw = visibleTransactions
+      .filter((t) => {
+        if (t.type !== 'expense') return false;
+        const d = t.date.split('T')[0];
+        return d >= monISO && d <= sunISO;
+      })
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    return Math.round(raw);
+  }, [visibleTransactions]);
+
   const safeToSpendMetrics = useMemo(() => {
-    return calculateSafeToSpend(totalBudget, totalSpent);
-  }, [totalBudget, totalSpent]);
+    return calculateSafeToSpend(totalBudget, totalSpent, new Date(), spentThisWeek);
+  }, [totalBudget, totalSpent, spentThisWeek]);
 
   const unpaidBills = bills.filter((b) => !b.isPaid);
   const upcomingBillsCount = unpaidBills.length;

@@ -37,7 +37,7 @@ import { useFinance } from '../../context/FinanceContext';
 import { FamilyUser, Wallet as WalletType } from '../../types/finance';
 import { PatternLock } from '../auth/PatternLock';
 import { comparePatterns } from '../../utils/patternAuth';
-import { formatCurrency, formatCurrencyExact, formatDateDisplay } from '../../utils/formatters';
+import { formatCurrency, formatCurrencyExact, formatDateDisplay, formatTabletDateDisplay } from '../../utils/formatters';
 import { GuideButton } from '../guide/GuideButton';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -83,13 +83,7 @@ export const TabletKioskView: React.FC = () => {
       setTime(
         now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       );
-      setDateStr(
-        now.toLocaleDateString([], {
-          weekday: 'long',
-          month: 'short',
-          day: 'numeric',
-        })
-      );
+      setDateStr(formatTabletDateDisplay(now));
     };
     updateTime();
     const interval = setInterval(updateTime, 1000);
@@ -359,7 +353,7 @@ export const TabletKioskView: React.FC = () => {
               {time}
             </h1>
             <p
-              className={`font-semibold text-teal-300 uppercase tracking-widest mt-1 ${
+              className={`font-semibold text-teal-300 tracking-wider mt-1 ${
                 isJumbo ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'
               }`}
             >

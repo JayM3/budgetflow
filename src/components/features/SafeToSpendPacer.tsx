@@ -1,17 +1,19 @@
 import React from 'react';
-import { Gauge, Calendar, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Calculator, Calendar, ShieldCheck } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatCurrency, formatCurrencyExact } from '../../utils/formatters';
 
 export const SafeToSpendPacer: React.FC = () => {
   const { safeToSpendMetrics, preferences, setIsWhatIfOpen } = useFinance();
   const {
-    safePerDay,
+    safePerWeek,
+    safeThisWeek,
+    spentThisWeek,
+    daysRemainingInWeek,
     remaining,
     daysRemainingInMonth,
     paceStatus,
     paceLabel,
-    currentDailyAverage,
   } = safeToSpendMetrics;
 
   const getPaceBadgeColor = () => {
@@ -32,14 +34,14 @@ export const SafeToSpendPacer: React.FC = () => {
       <div className="absolute -bottom-10 -left-10 w-64 h-64 bg-teal-400/10 rounded-full blur-2xl pointer-events-none" />
 
       <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-        {/* Left Side: Daily Safe Spend Metric */}
+        {/* Left Side: Weekly Safe Spend Metric */}
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <span className="p-1.5 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">
-              <Gauge className="w-4 h-4" />
+              <Calculator className="w-4 h-4" />
             </span>
             <span className="text-xs font-bold uppercase tracking-wider text-cyan-200">
-              Safe-to-Spend Velocity
+              What-If Calculator
             </span>
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getPaceBadgeColor()}`}>
               {paceLabel}
@@ -48,14 +50,16 @@ export const SafeToSpendPacer: React.FC = () => {
 
           <div className="flex items-baseline gap-2">
             <span className="text-4xl font-black tracking-tight text-white">
-              {formatCurrencyExact(safePerDay, preferences.currencySymbol)}
+              {formatCurrencyExact(safeThisWeek, preferences.currencySymbol)}
             </span>
-            <span className="text-cyan-200/80 text-sm font-medium">/ day</span>
+            <span className="text-cyan-200/80 text-sm font-medium">this week</span>
+            <span className="text-[11px] text-cyan-300/70 font-mono hidden sm:inline">
+              ({formatCurrencyExact(safePerWeek, preferences.currencySymbol)}/wk pace)
+            </span>
           </div>
 
           <p className="text-xs text-cyan-100/70 max-w-md">
-            You have <span className="text-white font-semibold">{formatCurrency(remaining, preferences.currencySymbol)}</span> remaining across the next{' '}
-            <span className="text-white font-semibold">{daysRemainingInMonth} days</span>. Spending under this limit guarantees you finish the month on budget.
+            You can spend up to <span className="text-white font-semibold">{formatCurrencyExact(safeThisWeek, preferences.currencySymbol)}</span> during this week ({daysRemainingInWeek} {daysRemainingInWeek === 1 ? 'day' : 'days'} left this week) from your <span className="text-white font-semibold">{formatCurrency(remaining, preferences.currencySymbol)}</span> monthly balance.
           </p>
         </div>
 
@@ -63,17 +67,17 @@ export const SafeToSpendPacer: React.FC = () => {
         <div className="flex flex-wrap md:flex-col items-start md:items-end gap-3 w-full md:w-auto">
           <div className="flex items-center gap-4 bg-white/10 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/15">
             <div className="text-left md:text-right">
-              <span className="text-[10px] text-cyan-200 uppercase font-semibold block">Pace So Far</span>
+              <span className="text-[10px] text-cyan-200 uppercase font-semibold block">Spent This Week</span>
               <span className="text-xs font-bold text-white">
-                ~{formatCurrencyExact(currentDailyAverage, preferences.currencySymbol)}/day
+                {formatCurrencyExact(spentThisWeek, preferences.currencySymbol)}
               </span>
             </div>
             <div className="h-6 w-px bg-white/20" />
             <div className="text-left md:text-right">
-              <span className="text-[10px] text-cyan-200 uppercase font-semibold block">Days Left</span>
+              <span className="text-[10px] text-cyan-200 uppercase font-semibold block">Week Days Left</span>
               <span className="text-xs font-bold text-white flex items-center gap-1">
                 <Calendar className="w-3 h-3 text-cyan-300" />
-                {daysRemainingInMonth} days
+                {daysRemainingInWeek}d <span className="text-cyan-300/60 font-normal">({daysRemainingInMonth}d mo)</span>
               </span>
             </div>
           </div>

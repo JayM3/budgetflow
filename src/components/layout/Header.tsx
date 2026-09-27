@@ -121,14 +121,14 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
           <span className="hidden lg:inline">Activity Log</span>
         </button>
 
-        {/* Daily Velocity Badge */}
+        {/* Weekly Velocity Badge */}
         <div
           onClick={() => setActiveView('budgets')}
           className="hidden xl:flex items-center gap-2 px-3.5 py-2 rounded-xl bg-cyan-50/80 border border-cyan-200/90 text-cyan-900 text-xs font-semibold cursor-pointer hover:bg-cyan-100/80 transition-all shadow-sm"
-          title="Daily Safe-to-Spend velocity allowance for the rest of this month"
+          title="Weekly Safe-to-Spend velocity allowance for the rest of this month"
         >
           <div className="w-2 h-2 rounded-full bg-cyan-500 animate-ping" />
-          <span>Safe: {formatCurrencyExact(safeToSpendMetrics.safePerDay, preferences.currencySymbol)}/day</span>
+          <span>Safe: {formatCurrencyExact(safeToSpendMetrics.safePerWeek, preferences.currencySymbol)}/wk</span>
         </div>
 
         {/* Quick Add Button */}

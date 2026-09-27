@@ -11,6 +11,9 @@ import {
   ArrowUpRight,
   X,
   Check,
+  Calendar as CalendarIcon,
+  ArrowDown,
+  ArrowUp,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import {
@@ -18,8 +21,10 @@ import {
   formatDateDisplay,
   formatTimeDisplay,
   toLocalDatetimeInputString,
+  formatDateRangeDisplay,
 } from '../../utils/formatters';
 import { Transaction, TransactionType } from '../../types/finance';
+import { DateRangePickerModal } from '../features/DateRangePickerModal';
 
 export const TransactionsView: React.FC = () => {
   const {
@@ -37,6 +42,10 @@ export const TransactionsView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedType, setSelectedType] = useState<'all' | 'expense' | 'income'>('all');
+  const [startDate, setStartDate] = useState<string | null>(null);
+  const [endDate, setEndDate] = useState<string | null>(null);
+  const [dateSortOrder, setDateSortOrder] = useState<'desc' | 'asc'>('desc');
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
   // Edit Modal State
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
@@ -51,7 +60,7 @@ export const TransactionsView: React.FC = () => {
   const isAdmin = !currentUser || currentUser.role === 'admin';
 
   const filteredTransactions = useMemo(() => {
-    return transactions.filter((t) => {
+    const list = transactions.filter((t) => {
       const matchesSearch =
         t.merchant.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (t.notes && t.notes.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -61,9 +70,19 @@ export const TransactionsView: React.FC = () => {
 
       const matchesType = selectedType === 'all' || t.type === selectedType;
 
-      return matchesSearch && matchesCat && matchesType;
+      const txDate = t.date.split('T')[0];
+      const matchesDate =
+        (!startDate || txDate >= startDate) && (!endDate || txDate <= endDate);
+
+      return matchesSearch && matchesCat && matchesType && matchesDate;
     });
-  }, [transactions, searchQuery, selectedCategory, selectedType]);
+
+    return list.sort((a, b) => {
+      const timeA = new Date(a.date).getTime();
+      const timeB = new Date(b.date).getTime();
+      return dateSortOrder === 'desc' ? timeB - timeA : timeA - timeB;
+    });
+  }, [transactions, searchQuery, selectedCategory, selectedType, startDate, endDate, dateSortOrder]);
 
   const handleOpenEdit = (tx: Transaction) => {
     setEditingTx(tx);
@@ -181,6 +200,36 @@ export const TransactionsView: React.FC = () => {
             </button>
           </div>
 
+          {/* Date Range Filter Button */}
+          <div className="flex items-center">
+            <button
+              type="button"
+              onClick={() => setIsDatePickerOpen(true)}
+              className={`px-3 py-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                startDate || endDate
+                  ? 'border-cyan-400 bg-cyan-50 text-cyan-800 font-bold shadow-sm'
+                  : 'border-slate-200 bg-white text-slate-700 hover:border-cyan-400 hover:bg-cyan-50/50'
+              }`}
+              title="Filter by date range or quick preset"
+            >
+              <CalendarIcon className="w-3.5 h-3.5 text-cyan-600" />
+              <span>{formatDateRangeDisplay(startDate, endDate)}</span>
+            </button>
+            {(startDate || endDate) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setStartDate(null);
+                  setEndDate(null);
+                }}
+                className="ml-1 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                title="Clear date filter"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
           {/* Action Buttons */}
           <button
             onClick={() => setIsCsvImportOpen(true)}
@@ -225,7 +274,20 @@ export const TransactionsView: React.FC = () => {
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 text-slate-400 font-semibold border-b border-slate-100">
               <tr>
-                <th className="p-4">Date & Time</th>
+                <th
+                  onClick={() => setDateSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
+                  className="p-4 cursor-pointer select-none hover:text-cyan-700 transition-colors group"
+                  title={`Sort by Date & Time (${dateSortOrder === 'desc' ? 'Newest first - click for Oldest' : 'Oldest first - click for Newest'})`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Date & Time</span>
+                    {dateSortOrder === 'desc' ? (
+                      <ArrowDown className="w-3.5 h-3.5 text-cyan-600" />
+                    ) : (
+                      <ArrowUp className="w-3.5 h-3.5 text-cyan-600" />
+                    )}
+                  </div>
+                </th>
                 <th className="p-4">Merchant & Notes</th>
                 <th className="p-4">Category</th>
                 <th className="p-4">Type</th>
@@ -487,6 +549,18 @@ export const TransactionsView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* DATE RANGE PICKER MODAL */}
+      <DateRangePickerModal
+        isOpen={isDatePickerOpen}
+        onClose={() => setIsDatePickerOpen(false)}
+        startDate={startDate}
+        endDate={endDate}
+        onApply={(s, e) => {
+          setStartDate(s);
+          setEndDate(e);
+        }}
+      />
     </div>
   );
 };

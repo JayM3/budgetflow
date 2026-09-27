@@ -181,18 +181,18 @@ export const WhatIfSimulatorModal: React.FC = () => {
 
             {/* Metric Comparisons */}
             <div className="grid grid-cols-2 gap-3 pt-1">
-              {/* Daily Safe Impact */}
+              {/* Weekly Safe Impact */}
               <div className="bg-white p-3 rounded-xl border border-slate-100">
                 <span className="text-[11px] text-slate-400 font-semibold block">New Safe-to-Spend</span>
                 <div className="flex items-baseline gap-1 mt-0.5">
                   <span className="text-lg font-extrabold text-slate-900">
-                    {formatCurrencyExact(sim.newDailySafe, preferences.currencySymbol)}
+                    {formatCurrencyExact(sim.newWeeklySafe, preferences.currencySymbol)}
                   </span>
-                  <span className="text-xs text-slate-400">/day</span>
+                  <span className="text-xs text-slate-400">/wk</span>
                 </div>
                 <span className="text-[10px] text-rose-500 font-semibold flex items-center gap-0.5 mt-0.5">
                   <ArrowDownRight className="w-3 h-3" />
-                  -{formatCurrencyExact(sim.dailyDrop, preferences.currencySymbol)} drop/day
+                  -{formatCurrencyExact(sim.weeklyDrop, preferences.currencySymbol)} drop/wk
                 </span>
               </div>
 

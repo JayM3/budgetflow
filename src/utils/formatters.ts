@@ -37,7 +37,7 @@ export const formatCurrencyExact = (amount: number, symbol: string = 'kr'): stri
   return `${isNegative ? '-' : ''}${symbol}${formatted}`;
 };
 
-export const formatDateDisplay = (dateString: string): string => {
+export const formatDateDisplay = (dateString?: string | null): string => {
   if (!dateString) return '';
   try {
     // If simple YYYY-MM-DD
@@ -117,4 +117,41 @@ function formatLocalDatetime(d: Date): string {
   const minutes = pad(d.getMinutes());
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
+
+/**
+ * Calculates ISO 8601 week number (1-53)
+ */
+export const getISOWeekNumber = (date: Date): number => {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+};
+
+/**
+ * Formats tablet kiosk ambient date: e.g. "Sunday, Sep 27 2026 - Week 39"
+ */
+export const formatTabletDateDisplay = (date: Date): string => {
+  const weekNum = getISOWeekNumber(date);
+  const weekday = date.toLocaleDateString('en-US', { weekday: 'long' });
+  const month = date.toLocaleDateString('en-US', { month: 'short' });
+  const day = date.getDate();
+  const year = date.getFullYear();
+  return `${weekday}, ${month} ${day} ${year} - Week ${weekNum}`;
+};
+
+/**
+ * Formats date range label for transaction filter button
+ */
+export const formatDateRangeDisplay = (startDate: string | null, endDate: string | null): string => {
+  if (!startDate && !endDate) return 'All Dates';
+  if (startDate && !endDate) return `From ${formatDateDisplay(startDate)}`;
+  if (!startDate && endDate) return `Until ${formatDateDisplay(endDate)}`;
+  if (startDate && endDate) {
+    if (startDate === endDate) return formatDateDisplay(startDate);
+    return `${formatDateDisplay(startDate)} – ${formatDateDisplay(endDate)}`;
+  }
+  return 'All Dates';
+};
 

@@ -155,7 +155,7 @@ export const BudgetsView: React.FC = () => {
             {!canEditBudgets && (
               <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
                 <Lock className="w-3 h-3 text-slate-500" />
-                View-Only Envelopes
+                View-Only Budgets
               </span>
             )}
           </div>
@@ -163,7 +163,7 @@ export const BudgetsView: React.FC = () => {
             Flexible, No-Guilt Budgeting
           </h2>
           <p className="text-xs text-slate-500 max-w-xl mt-1">
-            Adjust envelope caps, create custom spending categories, or smooth out unexpected expenses by shifting surplus funds with 1 click.
+            Adjust monthly budgets, create custom spending categories, or smooth out unexpected expenses by shifting surplus funds with 1 click.
           </p>
         </div>
 
@@ -175,7 +175,7 @@ export const BudgetsView: React.FC = () => {
               className="px-4 py-2.5 bg-gradient-to-r from-teal-600 via-cyan-600 to-sky-600 hover:from-teal-700 hover:via-cyan-700 hover:to-sky-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md shadow-cyan-600/20 flex items-center gap-2 transition-all"
             >
               <Plus className="w-4 h-4 stroke-[2.5]" />
-              <span>New Budget Envelope</span>
+              <span>New Budget Category</span>
             </button>
           )}
 
@@ -315,7 +315,7 @@ export const BudgetsView: React.FC = () => {
               {/* Adjust Cap Controls */}
               <div className="pt-3 border-t border-slate-100 space-y-2">
                 <div className="flex justify-between items-center text-[11px] text-slate-400 font-semibold">
-                  <span>Monthly Envelope Cap</span>
+                  <span>Monthly Budget</span>
                   {editingCapCatId === cat.id ? (
                     <div className="flex items-center gap-1.5">
                       <input
@@ -390,7 +390,7 @@ export const BudgetsView: React.FC = () => {
                 <div className="p-2 rounded-xl bg-cyan-50 text-cyan-600">
                   <Plus className="w-5 h-5 stroke-[2.5]" />
                 </div>
-                <h3 className="text-lg font-bold text-slate-900">New Budget Envelope</h3>
+                <h3 className="text-lg font-bold text-slate-900">New Budget Category</h3>
               </div>
               <button
                 onClick={() => setIsCreateModalOpen(false)}
@@ -417,7 +417,7 @@ export const BudgetsView: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
-                  Monthly Cap ({preferences.currencySymbol})
+                  Monthly Budget ({preferences.currencySymbol})
                 </label>
                 <input
                   type="number"
@@ -485,7 +485,7 @@ export const BudgetsView: React.FC = () => {
                   type="submit"
                   className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-teal-600 via-cyan-600 to-sky-600 text-white font-bold text-xs shadow-md shadow-cyan-600/20 hover:from-teal-700 hover:via-cyan-700 hover:to-sky-700 active:scale-95 transition-all"
                 >
-                  Create Envelope
+                  Create Budget
                 </button>
               </div>
             </form>
@@ -502,10 +502,10 @@ export const BudgetsView: React.FC = () => {
             </div>
 
             <h3 className="text-lg font-bold text-slate-900 mb-1">
-              Remove Budget Envelope?
+              Remove Budget Category?
             </h3>
             <p className="text-xs text-slate-500 mb-5 leading-relaxed">
-              Are you sure you want to remove the <span className="font-bold text-slate-800">'{categoryToDelete.name}'</span> envelope?
+              Are you sure you want to remove the <span className="font-bold text-slate-800">'{categoryToDelete.name}'</span> category?
               Existing transactions in this category will remain safe in your transaction history.
             </p>
 

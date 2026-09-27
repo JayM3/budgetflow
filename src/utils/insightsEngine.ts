@@ -9,8 +9,14 @@ export interface SafeToSpendMetrics {
   daysInMonth: number;
   currentDay: number;
   safePerDay: number;
+  safePerWeek: number;
+  daysRemainingInWeek: number;
+  safeThisWeek: number;
+  spentThisWeek: number;
+  remainingThisWeek: number;
   expectedDailyBudget: number;
   currentDailyAverage: number;
+  currentWeeklyAverage: number;
   paceStatus: 'green' | 'yellow' | 'red';
   paceLabel: string;
 }
@@ -22,6 +28,9 @@ export interface WhatIfSimulation {
   oldDailySafe: number;
   newDailySafe: number;
   dailyDrop: number;
+  oldWeeklySafe: number;
+  newWeeklySafe: number;
+  weeklyDrop: number;
   vacationGoalDelayDays: number;
   isOverBudget: boolean;
   verdict: 'safe' | 'caution' | 'critical';
@@ -31,7 +40,8 @@ export interface WhatIfSimulation {
 export const calculateSafeToSpend = (
   totalBudget: number,
   spent: number,
-  referenceDate: Date = new Date()
+  referenceDate: Date = new Date(),
+  spentThisWeek: number = 0
 ): SafeToSpendMetrics => {
   const year = referenceDate.getFullYear();
   const month = referenceDate.getMonth();
@@ -43,8 +53,20 @@ export const calculateSafeToSpend = (
   const spentPercentage = totalBudget > 0 ? Math.round((spent / totalBudget) * 100) : 0;
   
   const safePerDay = daysRemainingInMonth > 0 ? remaining / daysRemainingInMonth : 0;
+  const safePerWeek = safePerDay * 7;
+
+  // Days remaining in current calendar week (Monday to Sunday), capped by days remaining in month
+  const dayOfWeek = referenceDate.getDay(); // 0 = Sun, 1 = Mon ...
+  const daysRemainingInCalendarWeek = dayOfWeek === 0 ? 1 : 7 - dayOfWeek + 1;
+  const daysRemainingInWeek = Math.max(1, Math.min(daysRemainingInCalendarWeek, daysRemainingInMonth));
+
+  // How much one can spend during this week
+  const safeThisWeek = safePerDay * daysRemainingInWeek;
+  const remainingThisWeek = Math.max(0, safeThisWeek - spentThisWeek);
+
   const expectedDailyBudget = daysInMonth > 0 ? totalBudget / daysInMonth : 0;
   const currentDailyAverage = currentDay > 0 ? spent / currentDay : 0;
+  const currentWeeklyAverage = currentDailyAverage * 7;
 
   let paceStatus: 'green' | 'yellow' | 'red' = 'green';
   let paceLabel = 'Healthy Pace';
@@ -72,8 +94,14 @@ export const calculateSafeToSpend = (
     daysInMonth,
     currentDay,
     safePerDay,
+    safePerWeek,
+    daysRemainingInWeek,
+    safeThisWeek,
+    spentThisWeek,
+    remainingThisWeek,
     expectedDailyBudget,
     currentDailyAverage,
+    currentWeeklyAverage,
     paceStatus,
     paceLabel,
   };
@@ -94,6 +122,9 @@ export const simulatePurchase = (
   const newDailySafe = currentMetrics.daysRemainingInMonth > 0 ? Math.max(0, newRemaining) / currentMetrics.daysRemainingInMonth : 0;
   const dailyDrop = Math.max(0, currentMetrics.safePerDay - newDailySafe);
 
+  const newWeeklySafe = newDailySafe * 7;
+  const weeklyDrop = Math.max(0, currentMetrics.safePerWeek - newWeeklySafe);
+
   // Approximate delay in days towards savings goal if money is diverted
   const monthlySavingsPace = Math.max(0, totalBudget * 0.15);
   const dailySavingsRate = monthlySavingsPace > 0 ? monthlySavingsPace / 30 : 20;
@@ -109,7 +140,7 @@ export const simulatePurchase = (
     verdictMessage = `This purchase will exceed your monthly budget by ${Math.abs(newRemaining).toFixed(0)}. Rebalancing recommended.`;
   } else if (newSpentPercentage > 85 || dailyDrop > 25) {
     verdict = 'caution';
-    verdictMessage = `Tightens your daily safe allowance down to ${newDailySafe.toFixed(0)}/day for the rest of the month.`;
+    verdictMessage = `Tightens your weekly safe allowance down to ${newWeeklySafe.toFixed(0)}/week for the rest of the month.`;
   }
 
   return {
@@ -119,6 +150,9 @@ export const simulatePurchase = (
     oldDailySafe: currentMetrics.safePerDay,
     newDailySafe,
     dailyDrop,
+    oldWeeklySafe: currentMetrics.safePerWeek,
+    newWeeklySafe,
+    weeklyDrop,
     vacationGoalDelayDays,
     isOverBudget,
     verdict,
@@ -134,11 +168,11 @@ export const generateAlgorithmicInsights = (
 ): Insight[] => {
   const insights: Insight[] = [];
 
-  // 1. Safe-to-Spend velocity insight
+  // 1. Safe-to-Spend weekly velocity insight
   insights.push({
     id: 'in-pace',
-    title: `Daily Safe-to-Spend: $${safeMetrics.safePerDay.toFixed(2)}/day`,
-    description: `With $${safeMetrics.remaining.toLocaleString()} left and ${safeMetrics.daysRemainingInMonth} days remaining in November, spending under this threshold keeps you 100% on target.`,
+    title: `Weekly Safe-to-Spend: $${safeMetrics.safePerWeek.toFixed(2)}/wk`,
+    description: `You have $${safeMetrics.safeThisWeek.toFixed(2)} safe to spend during this week (${safeMetrics.daysRemainingInWeek} days left this week) out of your $${safeMetrics.remaining.toLocaleString()} monthly balance.`,
     type: safeMetrics.paceStatus === 'green' ? 'success' : safeMetrics.paceStatus === 'yellow' ? 'warning' : 'warning',
     metricDelta: safeMetrics.paceLabel,
   });
