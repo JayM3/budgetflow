@@ -114,7 +114,7 @@ const AppContent: React.FC = () => {
   const { title, subtitle } = getPageInfo();
 
   return (
-    <div className="flex min-h-screen bg-[#F0F6FA] relative overflow-hidden text-slate-800">
+    <div className="flex h-screen overflow-hidden bg-[#F0F6FA] relative text-slate-800">
       {/* Ambient background lighting inspired by the logo */}
       <div className="fixed -top-24 -left-24 w-96 h-96 bg-teal-300/15 rounded-full blur-3xl pointer-events-none" />
       <div className="fixed top-1/4 -right-20 w-[480px] h-[480px] bg-cyan-400/12 rounded-full blur-3xl pointer-events-none" />
@@ -124,7 +124,7 @@ const AppContent: React.FC = () => {
       <Sidebar />
 
       {/* Main Content Area */}
-      <main className="flex-1 p-6 md:p-8 lg:p-10 max-w-[1600px] mx-auto overflow-y-auto relative z-10">
+      <main className="flex-1 h-screen overflow-y-auto p-6 md:p-8 lg:p-10 max-w-[1600px] mx-auto relative z-10">
         <Header title={title} subtitle={subtitle} />
 
         {/* View Switcher */}
