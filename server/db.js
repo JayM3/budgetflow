@@ -20,14 +20,14 @@ const DEFAULT_STATE = {
   wallets: [],
   categories: [
     { id: 'cat_1', name: 'Groceries', allocated: 0, spent: 0, color: '#10b981', icon: 'ShoppingBag' },
-    { id: 'cat_2', name: 'Housing & Utilities', allocated: 0, spent: 0, color: '#0d9488', icon: 'Home' },
+    { id: 'cat_2', name: 'Rent', allocated: 0, spent: 0, color: '#3b82f6', icon: 'Home' },
     { id: 'cat_3', name: 'Transport & Fuel', allocated: 0, spent: 0, color: '#f59e0b', icon: 'Car' },
-    { id: 'cat_4', name: 'Dining & Entertainment', allocated: 0, spent: 0, color: '#ec4899', icon: 'Coffee' },
-    { id: 'cat_5', name: 'Health & Personal', allocated: 0, spent: 0, color: '#8b5cf6', icon: 'Heart' },
+    { id: 'cat_4', name: 'Utilities', allocated: 0, spent: 0, color: '#8b5cf6', icon: 'Zap' },
   ],
   transactions: [],
   bills: [],
   goals: [],
+  activityLogs: [],
   merchantRules: {},
 };
 

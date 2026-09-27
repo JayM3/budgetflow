@@ -38,9 +38,11 @@ export const formatCurrencyExact = (amount: number, symbol: string = 'kr'): stri
 };
 
 export const formatDateDisplay = (dateString: string): string => {
+  if (!dateString) return '';
   try {
-    const parts = dateString.split('-');
-    if (parts.length === 3) {
+    // If simple YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      const parts = dateString.split('-');
       const year = parseInt(parts[0], 10);
       const monthIndex = parseInt(parts[1], 10) - 1;
       const day = parseInt(parts[2], 10);
@@ -48,8 +50,71 @@ export const formatDateDisplay = (dateString: string): string => {
       return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     }
     const d = new Date(dateString);
-    return isNaN(d.getTime()) ? dateString : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return isNaN(d.getTime())
+      ? dateString
+      : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   } catch {
     return dateString;
   }
 };
+
+export const formatDateTimeDisplay = (dateString: string): string => {
+  if (!dateString) return '';
+  try {
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return formatDateDisplay(dateString);
+    
+    const dateFormatted = d.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+    const timeFormatted = d.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+    return `${dateFormatted} at ${timeFormatted}`;
+  } catch {
+    return dateString;
+  }
+};
+
+export const formatTimeDisplay = (dateString: string): string => {
+  if (!dateString) return '';
+  try {
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+  } catch {
+    return '';
+  }
+};
+
+/**
+ * Returns formatted YYYY-MM-DDTHH:mm string for local datetime-local input
+ */
+export const toLocalDatetimeInputString = (input?: Date | string): string => {
+  const d = input ? (typeof input === 'string' ? new Date(input) : input) : new Date();
+  if (isNaN(d.getTime())) {
+    const now = new Date();
+    return formatLocalDatetime(now);
+  }
+  return formatLocalDatetime(d);
+};
+
+function formatLocalDatetime(d: Date): string {
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const year = d.getFullYear();
+  const month = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  const hours = pad(d.getHours());
+  const minutes = pad(d.getMinutes());
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+

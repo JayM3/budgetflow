@@ -18,6 +18,8 @@ import { GuideModal } from './components/guide/GuideModal';
 import { QuickAddModal } from './components/features/QuickAddModal';
 import { WhatIfSimulatorModal } from './components/features/WhatIfSimulatorModal';
 import { CsvImportModal } from './components/features/CsvImportModal';
+import { CalendarSyncModal } from './components/features/CalendarSyncModal';
+import { ActivityLogModal } from './components/features/ActivityLogModal';
 
 const AppContent: React.FC = () => {
   const {
@@ -68,8 +70,8 @@ const AppContent: React.FC = () => {
         };
       case 'bills':
         return {
-          title: 'Bills & Subscriptions',
-          subtitle: 'Track upcoming payment dates and mark recurring commitments as paid.',
+          title: 'Bills and Income',
+          subtitle: 'Track recurring bills and income streams, and sync payment schedules with your device calendar.',
         };
       case 'goals':
         return {
@@ -130,6 +132,8 @@ const AppContent: React.FC = () => {
         <QuickAddModal />
         <WhatIfSimulatorModal />
         <CsvImportModal />
+        <CalendarSyncModal />
+        <ActivityLogModal />
 
         {/* Contextual Guide Modal */}
         <GuideModal

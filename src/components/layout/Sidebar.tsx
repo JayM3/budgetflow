@@ -25,7 +25,7 @@ const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'budgets', label: 'Budgets', icon: PieChart },
   { id: 'transactions', label: 'Transactions', icon: ArrowLeftRight },
-  { id: 'bills', label: 'Bills', icon: CalendarDays },
+  { id: 'bills', label: 'Bills and Income', icon: CalendarDays },
   { id: 'goals', label: 'Goals', icon: Target },
   { id: 'reports', label: 'Reports', icon: BarChart3 },
   { id: 'wallets', label: 'Wallets', icon: Wallet },

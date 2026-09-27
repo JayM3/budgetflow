@@ -27,6 +27,7 @@ import {
 } from '../server/cli/dataManager.js';
 import { runDoctor } from '../server/cli/doctor.js';
 import { setupService } from '../server/cli/serviceManager.js';
+import { runUpdate } from '../server/cli/updater.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -76,7 +77,13 @@ ${c.bold('DATA & FACTORY RESET:')}
 ${c.bold('MAINTENANCE & SYSTEM:')}
   ${c.cyan('budgetflow doctor')}          Run environment & network diagnostics
   ${c.cyan('budgetflow build')}           Recompile frontend production bundle
-  ${c.cyan('budgetflow update')}          Pull latest updates, rebuild & restart
+  ${c.cyan('budgetflow update')}          Self-update: downloads latest release (or repo fallback)
+                           ${c.dim('Flags: --check            Inspect for updates without applying')}
+                           ${c.dim('       --force            Force reinstall & rebuild even if up to date')}
+                           ${c.dim('       --repo, --source   Bypass releases and update from repository')}
+                           ${c.dim('       --channel <branch> Specify Git branch (default: main)')}
+                           ${c.dim('       --no-restart       Update files without restarting daemon')}
+                           ${c.dim('       --no-backup        Skip automated safety backup')}
   ${c.cyan('budgetflow service')} [act]   Configure autostart on boot (Linux systemd / Termux)
   ${c.cyan('budgetflow version')}         Print version information
   ${c.cyan('budgetflow help')}            Show this help guide
@@ -132,6 +139,11 @@ async function main() {
   const reinstall = hasFlag('--reinstall');
   const json = hasFlag('--json');
   const output = getFlagValue('-o', '--output');
+  const check = hasFlag('--check');
+  const force = hasFlag('--force');
+  const repoOnly = hasFlag('--repo', '--source');
+  const channel = getFlagValue('-c', '--channel') || 'main';
+  const noRestart = hasFlag('--no-restart');
 
   switch (command) {
     case 'start': {
@@ -225,20 +237,14 @@ async function main() {
     }
 
     case 'update': {
-      console.log(c.cyan('Updating BudgetFlow...'));
-      try {
-        console.log(c.dim('Pulling latest git changes...'));
-        execSync('git pull', { cwd: ROOT_DIR, stdio: 'inherit' });
-        console.log(c.dim('Installing dependencies...'));
-        execSync('npm install', { cwd: ROOT_DIR, stdio: 'inherit' });
-        console.log(c.dim('Rebuilding frontend bundle...'));
-        execSync('npm run build', { cwd: ROOT_DIR, stdio: 'inherit' });
-        console.log(c.success('Update completed!'));
-        console.log(c.dim('Restarting server...'));
-        await restartServer();
-      } catch (err) {
-        console.error(c.error(`Update failed: ${err.message}`));
-      }
+      await runUpdate({
+        check,
+        force,
+        repoOnly,
+        channel,
+        noRestart,
+        noBackup,
+      });
       break;
     }
 

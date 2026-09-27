@@ -13,6 +13,8 @@ import {
   HelpCircle,
   Server,
   Globe,
+  CalendarDays,
+  History,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatCurrencyExact } from '../../utils/formatters';
@@ -38,6 +40,8 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
     setIsTabletMode,
     setIsUserSelectModalOpen,
     setIsGuideOpenWithId,
+    setIsCalendarModalOpen,
+    setIsActivityLogOpen,
   } = useFinance();
 
   const [showNotifications, setShowNotifications] = useState(false);
@@ -95,6 +99,26 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
         >
           <HelpCircle className="w-3.5 h-3.5 text-teal-600" />
           <span className="hidden md:inline">Guides (?)</span>
+        </button>
+
+        {/* Device Calendar Sync Button */}
+        <button
+          onClick={() => setIsCalendarModalOpen(true)}
+          className="flex items-center gap-1.5 px-3 py-2 bg-white/90 backdrop-blur border border-slate-200 text-slate-700 hover:text-cyan-700 hover:border-cyan-300 rounded-xl text-xs font-semibold shadow-sm transition-all"
+          title="Sync with Apple Calendar, Google Calendar, or Outlook"
+        >
+          <CalendarDays className="w-3.5 h-3.5 text-cyan-600" />
+          <span className="hidden lg:inline">Calendar Sync</span>
+        </button>
+
+        {/* Activity Audit Log Button */}
+        <button
+          onClick={() => setIsActivityLogOpen(true)}
+          className="flex items-center gap-1.5 px-3 py-2 bg-white/90 backdrop-blur border border-slate-200 text-slate-700 hover:text-teal-700 hover:border-teal-300 rounded-xl text-xs font-semibold shadow-sm transition-all"
+          title="View detailed timestamped audit logs of all actions"
+        >
+          <History className="w-3.5 h-3.5 text-teal-600" />
+          <span className="hidden lg:inline">Activity Log</span>
         </button>
 
         {/* Daily Velocity Badge */}
@@ -231,6 +255,28 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
                     <Users className="w-3.5 h-3.5 text-slate-400" />
                   </button>
                 )}
+
+                <button
+                  onClick={() => {
+                    setShowProfileMenu(false);
+                    setIsCalendarModalOpen(true);
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 rounded-lg flex items-center justify-between"
+                >
+                  <span>Device Calendar Sync</span>
+                  <CalendarDays className="w-3.5 h-3.5 text-cyan-600" />
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowProfileMenu(false);
+                    setIsActivityLogOpen(true);
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 rounded-lg flex items-center justify-between"
+                >
+                  <span>Activity Audit Log</span>
+                  <History className="w-3.5 h-3.5 text-teal-600" />
+                </button>
 
                 <button
                   onClick={() => {

@@ -5,32 +5,50 @@ import {
   Upload,
   Download,
   Trash2,
-  Filter,
+  Edit2,
+  Clock,
   ArrowDownLeft,
   ArrowUpRight,
-  ShoppingBag,
-  Gamepad2,
-  Car,
-  Zap,
-  Landmark,
+  X,
+  Check,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
-import { formatCurrencyExact, formatDateDisplay } from '../../utils/formatters';
-import { Transaction } from '../../types/finance';
+import {
+  formatCurrencyExact,
+  formatDateDisplay,
+  formatTimeDisplay,
+  toLocalDatetimeInputString,
+} from '../../utils/formatters';
+import { Transaction, TransactionType } from '../../types/finance';
 
 export const TransactionsView: React.FC = () => {
   const {
     transactions,
     deleteTransaction,
+    updateTransaction,
     setIsQuickAddOpen,
     setIsCsvImportOpen,
     preferences,
     categories,
+    wallets,
+    currentUser,
   } = useFinance();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedType, setSelectedType] = useState<'all' | 'expense' | 'income'>('all');
+
+  // Edit Modal State
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+  const [editMerchant, setEditMerchant] = useState('');
+  const [editAmount, setEditAmount] = useState('0');
+  const [editType, setEditType] = useState<TransactionType>('expense');
+  const [editCategory, setEditCategory] = useState('');
+  const [editWalletId, setEditWalletId] = useState('');
+  const [editDatetime, setEditDatetime] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+
+  const isAdmin = !currentUser || currentUser.role === 'admin';
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter((t) => {
@@ -47,8 +65,41 @@ export const TransactionsView: React.FC = () => {
     });
   }, [transactions, searchQuery, selectedCategory, selectedType]);
 
+  const handleOpenEdit = (tx: Transaction) => {
+    setEditingTx(tx);
+    setEditMerchant(tx.merchant);
+    setEditAmount(tx.amount.toString());
+    setEditType(tx.type);
+    setEditCategory(tx.category);
+    setEditWalletId(tx.walletId || wallets[0]?.id || '');
+    setEditDatetime(toLocalDatetimeInputString(tx.date));
+    setEditNotes(tx.notes || '');
+  };
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTx) return;
+
+    const amt = parseFloat(editAmount);
+    if (isNaN(amt) || amt <= 0) return;
+
+    const updated: Transaction = {
+      ...editingTx,
+      merchant: editMerchant.trim() || editingTx.merchant,
+      amount: amt,
+      type: editType,
+      category: editType === 'income' ? 'Income' : editCategory,
+      walletId: editWalletId || editingTx.walletId,
+      date: editDatetime || editingTx.date,
+      notes: editNotes.trim() || undefined,
+    };
+
+    updateTransaction(updated);
+    setEditingTx(null);
+  };
+
   const handleExportCsv = () => {
-    const headers = ['ID', 'Date', 'Merchant', 'Category', 'Type', 'Amount', 'Notes'];
+    const headers = ['ID', 'Date & Time', 'Merchant', 'Category', 'Type', 'Amount', 'Wallet ID', 'Notes', 'Logged By'];
     const rows = transactions.map((t) => [
       t.id,
       t.date,
@@ -56,7 +107,9 @@ export const TransactionsView: React.FC = () => {
       t.category,
       t.type,
       t.amount,
+      t.walletId || '',
       `"${(t.notes || '').replace(/"/g, '""')}"`,
+      t.userName || '',
     ]);
 
     const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
@@ -64,7 +117,7 @@ export const TransactionsView: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `budgetflow_transactions_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `budgetflow_transactions_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -81,7 +134,7 @@ export const TransactionsView: React.FC = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search merchants, notes..."
-            className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+            className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-cyan-500 focus:outline-none font-medium"
           />
         </div>
 
@@ -141,7 +194,7 @@ export const TransactionsView: React.FC = () => {
           <button
             onClick={handleExportCsv}
             className="px-3.5 py-2 rounded-xl border border-slate-200 hover:border-cyan-400 hover:bg-cyan-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-all"
-            title="Export transactions to CSV"
+            title="Export transactions to CSV with Date & Time logs"
           >
             <Download className="w-3.5 h-3.5 text-cyan-600" />
             <span className="hidden sm:inline">Export CSV</span>
@@ -163,27 +216,45 @@ export const TransactionsView: React.FC = () => {
           <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
             Showing {filteredTransactions.length} Transactions
           </span>
+          <span className="text-[11px] text-slate-400 font-medium">
+            Accurate date & time logged
+          </span>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 text-slate-400 font-semibold border-b border-slate-100">
               <tr>
-                <th className="p-4">Date</th>
+                <th className="p-4">Date & Time</th>
                 <th className="p-4">Merchant & Notes</th>
                 <th className="p-4">Category</th>
                 <th className="p-4">Type</th>
                 <th className="p-4 text-right">Amount</th>
-                <th className="p-4 text-center">Action</th>
+                <th className="p-4 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredTransactions.map((tx) => {
                 const isIncome = tx.type === 'income';
+                const canEditTx = isAdmin || tx.userId === currentUser?.id;
+                const timeString = formatTimeDisplay(tx.date);
+
                 return (
-                  <tr key={tx.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="p-4 text-slate-500 font-medium">
-                      {formatDateDisplay(tx.date)}
+                  <tr key={tx.id} className="hover:bg-slate-50/80 transition-colors group">
+                    <td className="p-4">
+                      <div className="flex flex-col">
+                        <span className="text-slate-800 font-semibold text-xs">
+                          {formatDateDisplay(tx.date)}
+                        </span>
+                        {timeString ? (
+                          <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1 mt-0.5">
+                            <Clock className="w-2.5 h-2.5 text-slate-400" />
+                            {timeString}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-300">00:00</span>
+                        )}
+                      </div>
                     </td>
                     <td className="p-4">
                       <div>
@@ -228,13 +299,24 @@ export const TransactionsView: React.FC = () => {
                       </span>
                     </td>
                     <td className="p-4 text-center">
-                      <button
-                        onClick={() => deleteTransaction(tx.id)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all"
-                        title="Delete transaction"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center justify-center gap-1">
+                        {canEditTx && (
+                          <button
+                            onClick={() => handleOpenEdit(tx)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 transition-all"
+                            title="Edit transaction"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => deleteTransaction(tx.id)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all"
+                          title="Delete transaction"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -243,6 +325,158 @@ export const TransactionsView: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* EDIT TRANSACTION MODAL */}
+      {editingTx && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl border border-slate-100 p-6 text-slate-800">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-cyan-50 text-cyan-600">
+                  <Edit2 className="w-5 h-5 stroke-[2.5]" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900">Edit Transaction</h3>
+              </div>
+              <button
+                onClick={() => setEditingTx(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              {/* Type toggle */}
+              <div className="flex bg-slate-100 p-1 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setEditType('expense')}
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    editType === 'expense' ? 'bg-white shadow text-slate-900' : 'text-slate-500'
+                  }`}
+                >
+                  Expense
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditType('income')}
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    editType === 'income' ? 'bg-white shadow text-emerald-600' : 'text-slate-500'
+                  }`}
+                >
+                  Income
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                    Merchant / Description
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editMerchant}
+                    onChange={(e) => setEditMerchant(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                    Amount ({preferences.currencySymbol})
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    value={editAmount}
+                    onChange={(e) => setEditAmount(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {editType === 'expense' && (
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                      Category
+                    </label>
+                    <select
+                      value={editCategory}
+                      onChange={(e) => setEditCategory(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    >
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.name}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                    Wallet Account
+                  </label>
+                  <select
+                    value={editWalletId}
+                    onChange={(e) => setEditWalletId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  >
+                    {wallets.map((w) => (
+                      <option key={w.id} value={w.id}>{w.name} ({w.type})</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                  Accurate Date & Time
+                </label>
+                <input
+                  type="datetime-local"
+                  required
+                  value={editDatetime}
+                  onChange={(e) => setEditDatetime(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                  Notes (Optional)
+                </label>
+                <textarea
+                  rows={2}
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  placeholder="Additional context or memo..."
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+              </div>
+
+              <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingTx(null)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-teal-600 via-cyan-600 to-sky-600 text-white font-bold text-xs shadow-md shadow-cyan-600/20 hover:from-teal-700 hover:via-cyan-700 hover:to-sky-700 active:scale-95 transition-all"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

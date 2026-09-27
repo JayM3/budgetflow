@@ -161,6 +161,232 @@ export const api = {
     }
   },
 
+  async updateTransaction(id: string, updates: any): Promise<boolean> {
+    const token = this.getToken();
+    try {
+      const res = await fetch(`${API_BASE}/api/transactions/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updates),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
+  // Categories / Budgets
+  async createCategory(cat: any): Promise<any> {
+    const token = this.getToken();
+    try {
+      const res = await fetch(`${API_BASE}/api/categories`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(cat),
+      });
+      if (res.ok) return await res.json();
+    } catch {
+      return null;
+    }
+    return null;
+  },
+
+  async updateCategory(id: string, updates: any): Promise<boolean> {
+    const token = this.getToken();
+    try {
+      const res = await fetch(`${API_BASE}/api/categories/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updates),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
+  async deleteCategory(id: string): Promise<boolean> {
+    const token = this.getToken();
+    try {
+      const res = await fetch(`${API_BASE}/api/categories/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
+  // Bills and Recurring Income
+  async createBill(bill: any): Promise<any> {
+    const token = this.getToken();
+    try {
+      const res = await fetch(`${API_BASE}/api/bills`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(bill),
+      });
+      if (res.ok) return await res.json();
+    } catch {
+      return null;
+    }
+    return null;
+  },
+
+  async updateBill(id: string, updates: any): Promise<boolean> {
+    const token = this.getToken();
+    try {
+      const res = await fetch(`${API_BASE}/api/bills/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updates),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
+  async deleteBill(id: string): Promise<boolean> {
+    const token = this.getToken();
+    try {
+      const res = await fetch(`${API_BASE}/api/bills/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
+  // Goals
+  async createGoal(goal: any): Promise<any> {
+    const token = this.getToken();
+    try {
+      const res = await fetch(`${API_BASE}/api/goals`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(goal),
+      });
+      if (res.ok) return await res.json();
+    } catch {
+      return null;
+    }
+    return null;
+  },
+
+  async updateGoal(id: string, updates: any): Promise<boolean> {
+    const token = this.getToken();
+    try {
+      const res = await fetch(`${API_BASE}/api/goals/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updates),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
+  async deleteGoal(id: string): Promise<boolean> {
+    const token = this.getToken();
+    try {
+      const res = await fetch(`${API_BASE}/api/goals/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
+  // Wallets
+  async createWallet(wallet: any): Promise<any> {
+    const token = this.getToken();
+    try {
+      const res = await fetch(`${API_BASE}/api/wallets`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(wallet),
+      });
+      if (res.ok) return await res.json();
+    } catch {
+      return null;
+    }
+    return null;
+  },
+
+  async updateWallet(id: string, updates: any): Promise<boolean> {
+    const token = this.getToken();
+    try {
+      const res = await fetch(`${API_BASE}/api/wallets/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updates),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
+  async deleteWallet(id: string): Promise<boolean> {
+    const token = this.getToken();
+    try {
+      const res = await fetch(`${API_BASE}/api/wallets/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
+  async getActivityLogs(): Promise<any[]> {
+    const token = this.getToken();
+    try {
+      const res = await fetch(`${API_BASE}/api/activity-logs`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) return await res.json();
+    } catch {
+      return [];
+    }
+    return [];
+  },
+
   async addMember(member: any): Promise<boolean> {
     const token = this.getToken();
     try {

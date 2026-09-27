@@ -99,6 +99,24 @@ export async function runDoctor(options = {}) {
   const lanIp = getLocalIp();
   results.push({ name: 'LAN Network IP', status: 'pass', detail: `${lanIp} (Wi-Fi access ready)` });
 
+  // 8. GitHub Connectivity & Update Engine
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const ghRes = await fetch('https://api.github.com/zen', {
+      headers: { 'User-Agent': 'BudgetFlow-Doctor' },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (ghRes.ok) {
+      results.push({ name: 'GitHub Update Service', status: 'pass', detail: 'Online (Ready for budgetflow update)' });
+    } else {
+      results.push({ name: 'GitHub Update Service', status: 'warn', detail: `HTTP ${ghRes.status} response` });
+    }
+  } catch (_) {
+    results.push({ name: 'GitHub Update Service', status: 'warn', detail: 'Unreachable (Offline or blocked)' });
+  }
+
   // Print Summary Table
   console.log('═'.repeat(65));
   for (const r of results) {

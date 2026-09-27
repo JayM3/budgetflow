@@ -48,6 +48,28 @@ function authenticate(req, res, next) {
   next();
 }
 
+// Activity Audit Log helper
+function addActivityLog(action, entity, description, user, details) {
+  try {
+    const state = db.getState();
+    const log = {
+      id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      timestamp: new Date().toISOString(),
+      userId: user?.userId || user?.id || 'system',
+      userName: user?.name || 'Admin',
+      action,
+      entity,
+      description,
+      details,
+    };
+    const logs = [log, ...(state.activityLogs || [])].slice(0, 200);
+    db.setState({ activityLogs: logs });
+    return log;
+  } catch (err) {
+    console.error('Failed to write activity log:', err);
+  }
+}
+
 /* =========================================================
    PUBLIC / SETUP API ENDPOINTS
    ========================================================= */
@@ -65,6 +87,79 @@ app.get('/api/status', (req, res) => {
     lanIp: getLocalIp(),
     port: PORT,
   });
+});
+
+// 1b. Live iCalendar Subscription Feed (RFC 5545) for Device Calendar Sync
+app.get('/api/calendar/feed.ics', (req, res) => {
+  const state = db.getState();
+  const currencySymbol = state.householdSettings.currencySymbol || 'kr';
+
+  const formatIcalDate = (dStr) => {
+    if (!dStr) return new Date().toISOString().replace(/[-:]/g, '').split('T')[0];
+    return dStr.split('T')[0].replace(/-/g, '');
+  };
+
+  const nowStamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+
+  const icsLines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//BudgetFlow Hub//Recurring Schedule//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    `X-WR-CALNAME:${(state.householdSettings.householdName || 'BudgetFlow') + ' Recurring Finances'}`,
+    'X-WR-TIMEZONE:UTC',
+  ];
+
+  // Bills and Recurring Income
+  (state.bills || []).forEach((b) => {
+    const isIncome = b.type === 'income';
+    const cleanDate = formatIcalDate(b.dueDate);
+    const summary = isIncome
+      ? `💰 +${b.amount} ${currencySymbol} - ${b.name}`
+      : `🧾 Due: ${b.name} (${b.amount} ${currencySymbol})`;
+    const desc = `${isIncome ? 'Recurring Income' : 'Scheduled Bill'}: ${b.name}\\nAmount: ${b.amount} ${currencySymbol}\\nCategory: ${b.category}\\nFrequency: ${b.frequency}\\nStatus: ${b.isPaid ? 'Completed/Paid' : 'Pending'}`;
+    const freqUpper = (b.frequency || 'monthly').toUpperCase();
+    const rrule = freqUpper === 'WEEKLY' ? 'RRULE:FREQ=WEEKLY' : freqUpper === 'YEARLY' ? 'RRULE:FREQ=YEARLY' : 'RRULE:FREQ=MONTHLY';
+
+    icsLines.push(
+      'BEGIN:VEVENT',
+      `UID:item-${b.id}@budgetflow`,
+      `DTSTAMP:${nowStamp}`,
+      `DTSTART;VALUE=DATE:${cleanDate}`,
+      `SUMMARY:${summary}`,
+      `DESCRIPTION:${desc}`,
+      rrule,
+      'BEGIN:VALARM',
+      'ACTION:DISPLAY',
+      `DESCRIPTION:Reminder: ${b.name} is due tomorrow`,
+      'TRIGGER:-P1D',
+      'END:VALARM',
+      'END:VEVENT'
+    );
+  });
+
+  // Savings Goals target milestones
+  (state.goals || []).forEach((g) => {
+    if (g.targetDate) {
+      const cleanDate = formatIcalDate(g.targetDate);
+      icsLines.push(
+        'BEGIN:VEVENT',
+        `UID:goal-${g.id}@budgetflow`,
+        `DTSTAMP:${nowStamp}`,
+        `DTSTART;VALUE=DATE:${cleanDate}`,
+        `SUMMARY:🎯 Target: ${g.name} (${g.targetAmount} ${currencySymbol})`,
+        `DESCRIPTION:Target milestone for savings goal '${g.name}'. Target: ${g.targetAmount} ${currencySymbol}`,
+        'END:VEVENT'
+      );
+    }
+  });
+
+  icsLines.push('END:VCALENDAR');
+
+  res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+  res.setHeader('Content-Disposition', 'inline; filename="budgetflow_calendar.ics"');
+  res.send(icsLines.join('\r\n'));
 });
 
 // 2. Initial Setup (First time installation clean slate)
@@ -273,6 +368,7 @@ app.get('/api/data', authenticate, (req, res) => {
     transactions: visibleTransactions,
     bills: state.bills,
     goals: state.goals,
+    activityLogs: state.activityLogs || [],
     allUsers: isUserAdmin
       ? state.users.map((u) => ({
           id: u.id,
@@ -310,7 +406,8 @@ app.post('/api/transactions', authenticate, (req, res) => {
     category: txData.category,
     amount: Number(txData.amount) || 0,
     type: txData.type || 'expense',
-    date: txData.date || new Date().toISOString().split('T')[0],
+    date: txData.date || new Date().toISOString(),
+    createdAt: new Date().toISOString(),
     walletId: txData.walletId,
     notes: txData.notes,
     userId: user.userId,
@@ -341,6 +438,79 @@ app.post('/api/transactions', authenticate, (req, res) => {
     wallets: updatedWallets,
     categories: updatedCategories,
   });
+
+  addActivityLog('create', 'transaction', `Added transaction '${newTx.merchant}' (${newTx.amount})`, user);
+
+  res.json({ success: true, transaction: newTx });
+});
+
+// 6b. Edit Transaction
+app.put('/api/transactions/:id', authenticate, (req, res) => {
+  const state = db.getState();
+  const oldTx = state.transactions.find((t) => t.id === req.params.id);
+  if (!oldTx) {
+    return res.status(404).json({ error: 'Transaction not found' });
+  }
+  const user = req.user;
+  if (user.role !== 'admin' && oldTx.userId && oldTx.userId !== user.userId) {
+    return res.status(403).json({ error: 'You can only edit transactions you created.' });
+  }
+
+  const updates = req.body;
+  const newTx = {
+    ...oldTx,
+    merchant: updates.merchant !== undefined ? updates.merchant : oldTx.merchant,
+    category: updates.category !== undefined ? updates.category : oldTx.category,
+    amount: updates.amount !== undefined ? Number(updates.amount) : oldTx.amount,
+    type: updates.type !== undefined ? updates.type : oldTx.type,
+    date: updates.date !== undefined ? updates.date : oldTx.date,
+    walletId: updates.walletId !== undefined ? updates.walletId : oldTx.walletId,
+    notes: updates.notes !== undefined ? updates.notes : oldTx.notes,
+  };
+
+  // Revert old transaction balance & category impact
+  let updatedWallets = state.wallets.map((w) => {
+    if (w.id === oldTx.walletId) {
+      const revertDelta = oldTx.type === 'income' ? -oldTx.amount : oldTx.amount;
+      return { ...w, balance: w.balance + revertDelta };
+    }
+    return w;
+  });
+
+  // Apply new transaction balance
+  updatedWallets = updatedWallets.map((w) => {
+    if (w.id === newTx.walletId) {
+      const applyDelta = newTx.type === 'income' ? newTx.amount : -newTx.amount;
+      return { ...w, balance: w.balance + applyDelta };
+    }
+    return w;
+  });
+
+  // Revert old category spent
+  let updatedCategories = state.categories.map((c) => {
+    if (c.name.toLowerCase() === oldTx.category.toLowerCase() && oldTx.type === 'expense') {
+      return { ...c, spent: Math.max(0, c.spent - oldTx.amount) };
+    }
+    return c;
+  });
+
+  // Apply new category spent
+  updatedCategories = updatedCategories.map((c) => {
+    if (c.name.toLowerCase() === newTx.category.toLowerCase() && newTx.type === 'expense') {
+      return { ...c, spent: c.spent + newTx.amount };
+    }
+    return c;
+  });
+
+  const updatedTxs = state.transactions.map((t) => (t.id === req.params.id ? newTx : t));
+
+  db.setState({
+    transactions: updatedTxs,
+    wallets: updatedWallets,
+    categories: updatedCategories,
+  });
+
+  addActivityLog('update', 'transaction', `Edited transaction '${newTx.merchant}' (${newTx.amount})`, user);
 
   res.json({ success: true, transaction: newTx });
 });
@@ -375,7 +545,333 @@ app.delete('/api/transactions/:id', authenticate, (req, res) => {
     categories: updatedCategories,
   });
 
+  addActivityLog('delete', 'transaction', `Deleted transaction '${tx.merchant}'`, req.user);
+
   res.json({ success: true });
+});
+
+// 7b. Category / Budget Management (Create, Update, Remove Budget)
+app.post('/api/categories', authenticate, (req, res) => {
+  const user = req.user;
+  if (user.role !== 'admin' && !user.permissions?.canEditBudgets) {
+    return res.status(403).json({ error: 'Permission denied: cannot create budget categories.' });
+  }
+
+  const { name, allocated, color, icon } = req.body;
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: 'Budget name is required.' });
+  }
+
+  const state = db.getState();
+  const newCat = {
+    id: `cat_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+    name: name.trim(),
+    allocated: Number(allocated) || 0,
+    spent: 0,
+    color: color || '#10b981',
+    icon: icon || 'ShoppingBag',
+  };
+
+  db.setState({ categories: [...state.categories, newCat] });
+  addActivityLog('create', 'budget', `Created budget envelope '${newCat.name}' (Cap: ${newCat.allocated})`, user);
+  res.json({ success: true, category: newCat });
+});
+
+app.put('/api/categories/:id', authenticate, (req, res) => {
+  const user = req.user;
+  if (user.role !== 'admin' && !user.permissions?.canEditBudgets) {
+    return res.status(403).json({ error: 'Permission denied: cannot edit budget categories.' });
+  }
+
+  const state = db.getState();
+  const cat = state.categories.find((c) => c.id === req.params.id);
+  if (!cat) {
+    return res.status(404).json({ error: 'Budget category not found.' });
+  }
+
+  const updates = req.body;
+  const updatedCat = {
+    ...cat,
+    name: updates.name !== undefined ? updates.name.trim() : cat.name,
+    allocated: updates.allocated !== undefined ? Number(updates.allocated) : cat.allocated,
+    spent: updates.spent !== undefined ? Number(updates.spent) : cat.spent,
+    color: updates.color || cat.color,
+    icon: updates.icon || cat.icon,
+  };
+
+  const updatedCategories = state.categories.map((c) => (c.id === req.params.id ? updatedCat : c));
+  db.setState({ categories: updatedCategories });
+  addActivityLog('update', 'budget', `Updated budget '${updatedCat.name}' (Cap: ${updatedCat.allocated})`, user);
+  res.json({ success: true, category: updatedCat });
+});
+
+// Remove Budget function
+app.delete('/api/categories/:id', authenticate, (req, res) => {
+  const user = req.user;
+  if (user.role !== 'admin' && !user.permissions?.canEditBudgets) {
+    return res.status(403).json({ error: 'Permission denied: cannot delete budget categories.' });
+  }
+
+  const state = db.getState();
+  const cat = state.categories.find((c) => c.id === req.params.id);
+  if (!cat) {
+    return res.status(404).json({ error: 'Budget category not found.' });
+  }
+
+  const filteredCategories = state.categories.filter((c) => c.id !== req.params.id);
+  db.setState({ categories: filteredCategories });
+  addActivityLog('delete', 'budget', `Removed budget envelope '${cat.name}'`, user);
+  res.json({ success: true });
+});
+
+// 7c. Bills & Recurring Income CRUD
+app.post('/api/bills', authenticate, (req, res) => {
+  const user = req.user;
+  if (user.role !== 'admin' && !user.permissions?.canAddBills) {
+    return res.status(403).json({ error: 'Permission denied: cannot add recurring commitments.' });
+  }
+
+  const { name, amount, dueDate, category, isPaid, autoPay, frequency, type, walletId } = req.body;
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: 'Name is required.' });
+  }
+
+  const state = db.getState();
+  const newBill = {
+    id: `bill_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+    name: name.trim(),
+    amount: Number(amount) || 0,
+    dueDate: dueDate || new Date().toISOString().split('T')[0],
+    category: category || (type === 'income' ? 'Income' : 'Utilities'),
+    isPaid: Boolean(isPaid),
+    autoPay: Boolean(autoPay),
+    frequency: frequency || 'monthly',
+    type: type || 'bill',
+    walletId: walletId || (state.wallets[0]?.id || ''),
+  };
+
+  db.setState({ bills: [...state.bills, newBill] });
+  addActivityLog(
+    'create',
+    'bill',
+    `Added ${newBill.type === 'income' ? 'recurring income' : 'bill'} '${newBill.name}' (${newBill.amount})`,
+    user
+  );
+  res.json({ success: true, bill: newBill });
+});
+
+app.put('/api/bills/:id', authenticate, (req, res) => {
+  const user = req.user;
+  if (user.role !== 'admin' && !user.permissions?.canAddBills) {
+    return res.status(403).json({ error: 'Permission denied: cannot edit bills.' });
+  }
+
+  const state = db.getState();
+  const bill = state.bills.find((b) => b.id === req.params.id);
+  if (!bill) {
+    return res.status(404).json({ error: 'Bill not found.' });
+  }
+
+  const updates = req.body;
+  const updatedBill = {
+    ...bill,
+    name: updates.name !== undefined ? updates.name.trim() : bill.name,
+    amount: updates.amount !== undefined ? Number(updates.amount) : bill.amount,
+    dueDate: updates.dueDate !== undefined ? updates.dueDate : bill.dueDate,
+    category: updates.category !== undefined ? updates.category : bill.category,
+    isPaid: updates.isPaid !== undefined ? Boolean(updates.isPaid) : bill.isPaid,
+    autoPay: updates.autoPay !== undefined ? Boolean(updates.autoPay) : bill.autoPay,
+    frequency: updates.frequency !== undefined ? updates.frequency : bill.frequency,
+    type: updates.type !== undefined ? updates.type : bill.type,
+    walletId: updates.walletId !== undefined ? updates.walletId : bill.walletId,
+  };
+
+  const updatedBills = state.bills.map((b) => (b.id === req.params.id ? updatedBill : b));
+  db.setState({ bills: updatedBills });
+  addActivityLog(
+    'update',
+    'bill',
+    `Updated ${updatedBill.type === 'income' ? 'recurring income' : 'bill'} '${updatedBill.name}' (Status: ${updatedBill.isPaid ? 'Paid' : 'Unpaid'})`,
+    user
+  );
+  res.json({ success: true, bill: updatedBill });
+});
+
+app.delete('/api/bills/:id', authenticate, (req, res) => {
+  const user = req.user;
+  if (user.role !== 'admin' && !user.permissions?.canAddBills) {
+    return res.status(403).json({ error: 'Permission denied: cannot delete bills.' });
+  }
+
+  const state = db.getState();
+  const bill = state.bills.find((b) => b.id === req.params.id);
+  if (!bill) {
+    return res.status(404).json({ error: 'Bill not found.' });
+  }
+
+  const filteredBills = state.bills.filter((b) => b.id !== req.params.id);
+  db.setState({ bills: filteredBills });
+  addActivityLog('delete', 'bill', `Removed ${bill.type === 'income' ? 'recurring income' : 'bill'} '${bill.name}'`, user);
+  res.json({ success: true });
+});
+
+// 7d. Goals CRUD
+app.post('/api/goals', authenticate, (req, res) => {
+  const user = req.user;
+  if (user.role !== 'admin' && !user.permissions?.canAddGoals) {
+    return res.status(403).json({ error: 'Permission denied: cannot create goals.' });
+  }
+
+  const { name, targetAmount, currentAmount, targetDate, category, color } = req.body;
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: 'Goal name is required.' });
+  }
+
+  const state = db.getState();
+  const newGoal = {
+    id: `goal_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+    name: name.trim(),
+    targetAmount: Number(targetAmount) || 0,
+    currentAmount: Number(currentAmount) || 0,
+    targetDate: targetDate || new Date().toISOString().split('T')[0],
+    category: category || 'Savings',
+    color: color || '#0d9488',
+    contributions: [],
+  };
+
+  db.setState({ goals: [...state.goals, newGoal] });
+  addActivityLog('create', 'goal', `Created savings goal '${newGoal.name}' (Target: ${newGoal.targetAmount})`, user);
+  res.json({ success: true, goal: newGoal });
+});
+
+app.put('/api/goals/:id', authenticate, (req, res) => {
+  const user = req.user;
+  if (user.role !== 'admin' && !user.permissions?.canAddGoals) {
+    return res.status(403).json({ error: 'Permission denied: cannot edit goals.' });
+  }
+
+  const state = db.getState();
+  const goal = state.goals.find((g) => g.id === req.params.id);
+  if (!goal) {
+    return res.status(404).json({ error: 'Goal not found.' });
+  }
+
+  const updates = req.body;
+  const updatedGoal = {
+    ...goal,
+    name: updates.name !== undefined ? updates.name.trim() : goal.name,
+    targetAmount: updates.targetAmount !== undefined ? Number(updates.targetAmount) : goal.targetAmount,
+    currentAmount: updates.currentAmount !== undefined ? Number(updates.currentAmount) : goal.currentAmount,
+    targetDate: updates.targetDate !== undefined ? updates.targetDate : goal.targetDate,
+    category: updates.category !== undefined ? updates.category : goal.category,
+    color: updates.color || goal.color,
+    contributions: updates.contributions || goal.contributions,
+  };
+
+  const updatedGoals = state.goals.map((g) => (g.id === req.params.id ? updatedGoal : g));
+  db.setState({ goals: updatedGoals });
+  addActivityLog('update', 'goal', `Updated savings goal '${updatedGoal.name}' (Current: ${updatedGoal.currentAmount}/${updatedGoal.targetAmount})`, user);
+  res.json({ success: true, goal: updatedGoal });
+});
+
+app.delete('/api/goals/:id', authenticate, (req, res) => {
+  const user = req.user;
+  if (user.role !== 'admin' && !user.permissions?.canAddGoals) {
+    return res.status(403).json({ error: 'Permission denied: cannot delete goals.' });
+  }
+
+  const state = db.getState();
+  const goal = state.goals.find((g) => g.id === req.params.id);
+  if (!goal) {
+    return res.status(404).json({ error: 'Goal not found.' });
+  }
+
+  const filteredGoals = state.goals.filter((g) => g.id !== req.params.id);
+  db.setState({ goals: filteredGoals });
+  addActivityLog('delete', 'goal', `Removed savings goal '${goal.name}'`, user);
+  res.json({ success: true });
+});
+
+// 7e. Wallets CRUD (Admin-only for adding, editing, reconciling, deleting)
+app.post('/api/wallets', authenticate, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Only admins can add wallets.' });
+  }
+
+  const { name, type, balance, limit, color, isShared } = req.body;
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: 'Wallet name is required.' });
+  }
+
+  const state = db.getState();
+  const newWallet = {
+    id: `wallet_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+    name: name.trim(),
+    type: type || 'checking',
+    balance: Number(balance) || 0,
+    limit: limit !== undefined ? Number(limit) : undefined,
+    color: color || '#0d9488',
+    isShared: isShared !== undefined ? Boolean(isShared) : true,
+  };
+
+  db.setState({ wallets: [...state.wallets, newWallet] });
+  addActivityLog('create', 'wallet', `Added new wallet '${newWallet.name}' (${newWallet.type}, balance: ${newWallet.balance})`, req.user);
+  res.json({ success: true, wallet: newWallet });
+});
+
+app.put('/api/wallets/:id', authenticate, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Only admins can edit wallets.' });
+  }
+
+  const state = db.getState();
+  const wallet = state.wallets.find((w) => w.id === req.params.id);
+  if (!wallet) {
+    return res.status(404).json({ error: 'Wallet not found.' });
+  }
+
+  const updates = req.body;
+  const updatedWallet = {
+    ...wallet,
+    name: updates.name !== undefined ? updates.name.trim() : wallet.name,
+    type: updates.type !== undefined ? updates.type : wallet.type,
+    balance: updates.balance !== undefined ? Number(updates.balance) : wallet.balance,
+    limit: updates.limit !== undefined ? Number(updates.limit) : wallet.limit,
+    color: updates.color || wallet.color,
+    isShared: updates.isShared !== undefined ? Boolean(updates.isShared) : wallet.isShared,
+  };
+
+  const updatedWallets = state.wallets.map((w) => (w.id === req.params.id ? updatedWallet : w));
+  db.setState({ wallets: updatedWallets });
+  addActivityLog('reconcile', 'wallet', `Reconciled/Updated wallet '${updatedWallet.name}' (Balance: ${updatedWallet.balance})`, req.user);
+  res.json({ success: true, wallet: updatedWallet });
+});
+
+app.delete('/api/wallets/:id', authenticate, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Only admins can remove wallets.' });
+  }
+
+  const state = db.getState();
+  if (state.wallets.length <= 1) {
+    return res.status(400).json({ error: 'Cannot delete the only remaining wallet in the household.' });
+  }
+
+  const wallet = state.wallets.find((w) => w.id === req.params.id);
+  if (!wallet) {
+    return res.status(404).json({ error: 'Wallet not found.' });
+  }
+
+  const filteredWallets = state.wallets.filter((w) => w.id !== req.params.id);
+  db.setState({ wallets: filteredWallets });
+  addActivityLog('delete', 'wallet', `Removed wallet '${wallet.name}'`, req.user);
+  res.json({ success: true });
+});
+
+// 7f. Get Activity Logs
+app.get('/api/activity-logs', authenticate, (req, res) => {
+  const state = db.getState();
+  res.json(state.activityLogs || []);
 });
 
 // 8. Admin: Add Family Member
@@ -492,6 +988,10 @@ app.get('*', (req, res) => {
 const pidFile = path.join(__dirname, 'data', 'budgetflow.pid');
 
 const server = app.listen(PORT, '0.0.0.0', () => {
+  try {
+    fs.mkdirSync(path.dirname(pidFile), { recursive: true });
+    fs.writeFileSync(pidFile, String(process.pid), 'utf-8');
+  } catch (_) {}
   const lanIp = getLocalIp();
   console.log(`
 ╔═══════════════════════════════════════════════════════════════════╗

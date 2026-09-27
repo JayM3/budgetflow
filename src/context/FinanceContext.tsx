@@ -11,6 +11,7 @@ import {
   FamilyUser,
   HouseholdSettings,
   GuideId,
+  ActivityLog,
 } from '../types/finance';
 import {
   initialCategories,
@@ -110,6 +111,18 @@ interface FinanceContextType {
   toggleBillPaid: (billId: string) => void;
   updateCategoryAllocation: (categoryId: string, amount: number) => void;
   rebalanceCategories: (fromCategoryId: string, toCategoryId: string, amount: number) => void;
+  createCategory: (cat: Omit<BudgetCategory, 'id'>) => void;
+  updateCategory: (cat: BudgetCategory) => void;
+  deleteCategory: (id: string) => void;
+  addBill: (bill: Omit<Bill, 'id'>) => void;
+  updateBill: (bill: Bill) => void;
+  deleteBill: (id: string) => void;
+  addGoal: (goal: Omit<SavingsGoal, 'id'>) => void;
+  updateGoal: (goal: SavingsGoal) => void;
+  deleteGoal: (id: string) => void;
+  addWallet: (wallet: Omit<Wallet, 'id'>) => void;
+  updateWallet: (wallet: Wallet) => void;
+  deleteWallet: (id: string) => void;
   contributeToGoal: (goalId: string, amount: number) => void;
   bulkImportTransactions: (newTxs: Omit<Transaction, 'id'>[]) => void;
   updatePreferences: (updates: Partial<UserPreferences>) => void;
@@ -118,6 +131,14 @@ interface FinanceContextType {
   exportDataJson: () => void;
   importDataJson: (jsonStr: string) => boolean;
   triggerConfetti: () => void;
+
+  // Global Calendar & Activity Audit Logs
+  isCalendarModalOpen: boolean;
+  setIsCalendarModalOpen: (open: boolean) => void;
+  isActivityLogOpen: boolean;
+  setIsActivityLogOpen: (open: boolean) => void;
+  activityLogs: ActivityLog[];
+  logActivity: (action: ActivityLog['action'], entity: ActivityLog['entity'], description: string, details?: any) => void;
 
   // Family Management Actions
   addFamilyUser: (user: Omit<FamilyUser, 'id'>) => void;
@@ -259,6 +280,25 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   });
 
+  // Global Modals State
+  const [isCalendarModalOpen, setIsCalendarModalOpen] = useState<boolean>(false);
+  const [isActivityLogOpen, setIsActivityLogOpen] = useState<boolean>(false);
+
+  // Activity Logs
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>(() => {
+    try {
+      const saved = localStorage.getItem(LS_PREFIX + 'activityLogs');
+      if (saved) return JSON.parse(saved);
+      return [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem(LS_PREFIX + 'activityLogs', JSON.stringify(activityLogs));
+  }, [activityLogs]);
+
   // Check backend server status on mount
   useEffect(() => {
     const initServerCheck = async () => {
@@ -281,6 +321,17 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
             } else {
               setCurrentUser(savedUser);
             }
+          }
+
+          // Fetch full data from server
+          const remoteData = await api.getData();
+          if (remoteData) {
+            if (remoteData.categories && remoteData.categories.length > 0) setCategories(remoteData.categories);
+            if (remoteData.wallets && remoteData.wallets.length > 0) setAllWallets(remoteData.wallets);
+            if (remoteData.transactions) setTransactions(remoteData.transactions);
+            if (remoteData.bills) setBills(remoteData.bills);
+            if (remoteData.goals) setGoals(remoteData.goals);
+            if (remoteData.activityLogs) setActivityLogs(remoteData.activityLogs);
           }
         }
       } else {
@@ -444,11 +495,33 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
+  const logActivity = (
+    action: ActivityLog['action'],
+    entity: ActivityLog['entity'],
+    description: string,
+    details?: any
+  ) => {
+    const newLog: ActivityLog = {
+      id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      timestamp: new Date().toISOString(),
+      userId: currentUser?.id,
+      userName: currentUser?.name || 'Admin',
+      action,
+      entity,
+      description,
+      details,
+    };
+    setActivityLogs((prev) => [newLog, ...prev].slice(0, 200));
+  };
+
   // Actions
   const addTransaction = (tx: Omit<Transaction, 'id'>) => {
+    const nowIso = new Date().toISOString();
     const newTx: Transaction = {
       ...tx,
       id: 'tx-' + Date.now(),
+      date: tx.date || nowIso,
+      createdAt: nowIso,
       userId: tx.userId || currentUser?.id,
       userName: tx.userName || currentUser?.name,
     };
@@ -482,17 +555,226 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         })
       );
     }
+
+    logActivity('create', 'transaction', `Added transaction '${newTx.merchant}' (${newTx.amount} ${preferences.currencySymbol})`);
   };
 
   const deleteTransaction = (id: string) => {
+    const tx = transactions.find((t) => t.id === id);
+    if (!tx) return;
+
     setTransactions((prev) => prev.filter((t) => t.id !== id));
     if (isSelfHosted) {
       api.deleteTransaction(id);
     }
+
+    if (tx.walletId) {
+      setAllWallets((prevWallets) =>
+        prevWallets.map((w) => {
+          if (w.id === tx.walletId) {
+            if (w.type === 'credit') {
+              return {
+                ...w,
+                balance: tx.type === 'expense' ? w.balance - tx.amount : w.balance + tx.amount,
+              };
+            } else {
+              return {
+                ...w,
+                balance: tx.type === 'income' ? w.balance - tx.amount : w.balance + tx.amount,
+              };
+            }
+          }
+          return w;
+        })
+      );
+    }
+
+    logActivity('delete', 'transaction', `Deleted transaction '${tx.merchant}'`);
   };
 
   const updateTransaction = (updatedTx: Transaction) => {
+    const oldTx = transactions.find((t) => t.id === updatedTx.id);
+    if (!oldTx) return;
+
     setTransactions((prev) => prev.map((t) => (t.id === updatedTx.id ? updatedTx : t)));
+
+    if (isSelfHosted) {
+      api.updateTransaction(updatedTx.id, updatedTx);
+    }
+
+    // Reconcile wallet balances for old vs new wallet/amount/type
+    setAllWallets((prevWallets) => {
+      let next = [...prevWallets];
+      if (oldTx.walletId) {
+        next = next.map((w) => {
+          if (w.id === oldTx.walletId) {
+            if (w.type === 'credit') {
+              return { ...w, balance: oldTx.type === 'expense' ? w.balance - oldTx.amount : w.balance + oldTx.amount };
+            } else {
+              return { ...w, balance: oldTx.type === 'income' ? w.balance - oldTx.amount : w.balance + oldTx.amount };
+            }
+          }
+          return w;
+        });
+      }
+      if (updatedTx.walletId) {
+        next = next.map((w) => {
+          if (w.id === updatedTx.walletId) {
+            if (w.type === 'credit') {
+              return { ...w, balance: updatedTx.type === 'expense' ? w.balance + updatedTx.amount : w.balance - updatedTx.amount };
+            } else {
+              return { ...w, balance: updatedTx.type === 'income' ? w.balance + updatedTx.amount : w.balance - updatedTx.amount };
+            }
+          }
+          return w;
+        });
+      }
+      return next;
+    });
+
+    logActivity('update', 'transaction', `Edited transaction '${updatedTx.merchant}' (${updatedTx.amount} ${preferences.currencySymbol})`);
+  };
+
+  const createCategory = (cat: Omit<BudgetCategory, 'id'>) => {
+    const newCat: BudgetCategory = {
+      ...cat,
+      id: 'cat-' + Date.now(),
+      spent: 0,
+    };
+    setCategories((prev) => [...prev, newCat]);
+    if (isSelfHosted) {
+      api.createCategory(newCat);
+    }
+    logActivity('create', 'budget', `Created budget envelope '${newCat.name}' (Cap: ${newCat.allocated} ${preferences.currencySymbol})`);
+    triggerConfetti();
+  };
+
+  const updateCategory = (cat: BudgetCategory) => {
+    setCategories((prev) => prev.map((c) => (c.id === cat.id ? cat : c)));
+    if (isSelfHosted) {
+      api.updateCategory(cat.id, cat);
+    }
+    logActivity('update', 'budget', `Updated budget '${cat.name}' (Cap: ${cat.allocated} ${preferences.currencySymbol})`);
+  };
+
+  const deleteCategory = (id: string) => {
+    const cat = categories.find((c) => c.id === id);
+    setCategories((prev) => prev.filter((c) => c.id !== id));
+    if (isSelfHosted) {
+      api.deleteCategory(id);
+    }
+    if (cat) {
+      logActivity('delete', 'budget', `Removed budget envelope '${cat.name}'`);
+    }
+  };
+
+  const addBill = (bill: Omit<Bill, 'id'>) => {
+    const newBill: Bill = {
+      ...bill,
+      id: 'bill-' + Date.now(),
+      type: bill.type || 'bill',
+    };
+    setBills((prev) => [...prev, newBill]);
+    if (isSelfHosted) {
+      api.createBill(newBill);
+    }
+    logActivity(
+      'create',
+      'bill',
+      `Added ${newBill.type === 'income' ? 'recurring income' : 'bill'} '${newBill.name}' (${newBill.amount} ${preferences.currencySymbol})`
+    );
+    triggerConfetti();
+  };
+
+  const updateBill = (bill: Bill) => {
+    setBills((prev) => prev.map((b) => (b.id === bill.id ? bill : b)));
+    if (isSelfHosted) {
+      api.updateBill(bill.id, bill);
+    }
+    logActivity(
+      'update',
+      'bill',
+      `Updated ${bill.type === 'income' ? 'recurring income' : 'bill'} '${bill.name}'`
+    );
+  };
+
+  const deleteBill = (id: string) => {
+    const bill = bills.find((b) => b.id === id);
+    setBills((prev) => prev.filter((b) => b.id !== id));
+    if (isSelfHosted) {
+      api.deleteBill(id);
+    }
+    if (bill) {
+      logActivity('delete', 'bill', `Removed ${bill.type === 'income' ? 'recurring income' : 'bill'} '${bill.name}'`);
+    }
+  };
+
+  const addGoal = (goal: Omit<SavingsGoal, 'id'>) => {
+    const newGoal: SavingsGoal = {
+      ...goal,
+      id: 'g-' + Date.now(),
+      currentAmount: goal.currentAmount || 0,
+      contributions: [],
+    };
+    setGoals((prev) => [...prev, newGoal]);
+    if (isSelfHosted) {
+      api.createGoal(newGoal);
+    }
+    logActivity('create', 'goal', `Created savings goal '${newGoal.name}' (Target: ${newGoal.targetAmount} ${preferences.currencySymbol})`);
+    triggerConfetti();
+  };
+
+  const updateGoal = (goal: SavingsGoal) => {
+    setGoals((prev) => prev.map((g) => (g.id === goal.id ? goal : g)));
+    if (isSelfHosted) {
+      api.updateGoal(goal.id, goal);
+    }
+    logActivity('update', 'goal', `Updated savings goal '${goal.name}'`);
+  };
+
+  const deleteGoal = (id: string) => {
+    const goal = goals.find((g) => g.id === id);
+    setGoals((prev) => prev.filter((g) => g.id !== id));
+    if (isSelfHosted) {
+      api.deleteGoal(id);
+    }
+    if (goal) {
+      logActivity('delete', 'goal', `Removed savings goal '${goal.name}'`);
+    }
+  };
+
+  const addWallet = (wallet: Omit<Wallet, 'id'>) => {
+    const newWallet: Wallet = {
+      ...wallet,
+      id: 'w-' + Date.now(),
+      balance: Number(wallet.balance) || 0,
+    };
+    setAllWallets((prev) => [...prev, newWallet]);
+    if (isSelfHosted) {
+      api.createWallet(newWallet);
+    }
+    logActivity('create', 'wallet', `Added new wallet '${newWallet.name}' (Balance: ${newWallet.balance} ${preferences.currencySymbol})`);
+    triggerConfetti();
+  };
+
+  const updateWallet = (wallet: Wallet) => {
+    setAllWallets((prev) => prev.map((w) => (w.id === wallet.id ? wallet : w)));
+    if (isSelfHosted) {
+      api.updateWallet(wallet.id, wallet);
+    }
+    logActivity('reconcile', 'wallet', `Reconciled/Updated wallet '${wallet.name}' (Balance: ${wallet.balance} ${preferences.currencySymbol})`);
+  };
+
+  const deleteWallet = (id: string) => {
+    if (allWallets.length <= 1) return;
+    const wallet = allWallets.find((w) => w.id === id);
+    setAllWallets((prev) => prev.filter((w) => w.id !== id));
+    if (isSelfHosted) {
+      api.deleteWallet(id);
+    }
+    if (wallet) {
+      logActivity('delete', 'wallet', `Removed wallet '${wallet.name}'`);
+    }
   };
 
   const toggleBillPaid = (billId: string) => {
@@ -799,6 +1081,18 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         toggleBillPaid,
         updateCategoryAllocation,
         rebalanceCategories,
+        createCategory,
+        updateCategory,
+        deleteCategory,
+        addBill,
+        updateBill,
+        deleteBill,
+        addGoal,
+        updateGoal,
+        deleteGoal,
+        addWallet,
+        updateWallet,
+        deleteWallet,
         contributeToGoal,
         bulkImportTransactions,
         updatePreferences,
@@ -807,6 +1101,12 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         exportDataJson,
         importDataJson,
         triggerConfetti,
+        isCalendarModalOpen,
+        setIsCalendarModalOpen,
+        isActivityLogOpen,
+        setIsActivityLogOpen,
+        activityLogs,
+        logActivity,
         addFamilyUser,
         updateFamilyUser,
         deleteFamilyUser,

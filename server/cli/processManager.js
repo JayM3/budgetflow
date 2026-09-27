@@ -305,13 +305,9 @@ export async function restartServer(options = {}) {
 export async function showStatus(options = {}) {
   const port = options.port || process.env.PORT || 5050;
   const asJson = options.json || false;
-  const pid = getStoredPid();
-  const running = pid ? isProcessRunning(pid) : false;
-
-  let health = null;
-  if (running) {
-    health = await queryServerStatus(port);
-  }
+  let pid = getStoredPid();
+  let health = await queryServerStatus(port);
+  const running = (pid && isProcessRunning(pid)) || (health && health.ok);
 
   const lanIp = getLocalIp();
 
