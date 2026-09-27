@@ -274,6 +274,9 @@ budgetflow backup
 # Factory reset: wipes all data back to clean slate (with automated safety backup)
 budgetflow wipe
 
+# Self-update BudgetFlow to latest release (or latest repo commits)
+budgetflow update
+
 # Open BudgetFlow in your default browser
 budgetflow open
 ```
@@ -291,7 +294,8 @@ budgetflow open
 | `budgetflow backup` | `[output-dir]` | Creates timestamped snapshot in `server/data/backups/`. |
 | `budgetflow restore` | `<backup-file> -y` | Overwrites current database with specified backup snapshot. |
 | `budgetflow export` | `[json\|csv] -o <file>` | Exports data to full JSON or CSV transaction statement. |
-| `budgetflow doctor` | *(none)* | Comprehensive health check (Node, npm, permissions, port, IP). |
+| `budgetflow doctor` | *(none)* | Comprehensive health check (Node, npm, permissions, port, IP, GitHub update service). |
+| `budgetflow update` | `--check`<br>`--force`<br>`--repo, --source`<br>`--channel <branch>`<br>`--no-restart`<br>`--no-backup` | **Autonomous Self-Update**: Queries GitHub for official releases or smoothly falls back to the latest repository commits. Preserves local user data (`server/data/`), creates pre-update snapshot, updates dependencies, rebuilds `/dist`, and restarts the server daemon. |
 | `budgetflow service` | `install \| uninstall` | Installs system autostart (Linux systemd user unit or Termux:Boot script). |
 
 #### 4. Initial Setup Wizard
