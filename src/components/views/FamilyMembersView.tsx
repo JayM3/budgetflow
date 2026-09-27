@@ -28,6 +28,7 @@ export const FamilyMembersView: React.FC = () => {
     familyUsers,
     currentUser,
     wallets,
+    allWallets,
     addFamilyUser,
     updateFamilyUser,
     deleteFamilyUser,
@@ -45,8 +46,8 @@ export const FamilyMembersView: React.FC = () => {
   const [color, setColor] = useState('#0d9488');
   const [allowedWalletIds, setAllowedWalletIds] = useState<string[]>([]);
   const [permissions, setPermissions] = useState({
-    canAddBills: false,
-    canAddGoals: true,
+    canAddBills: true,
+    canAddGoals: false,
     canEditBudgets: false,
     canViewHouseholdReports: false,
   });
@@ -59,10 +60,10 @@ export const FamilyMembersView: React.FC = () => {
     setRole('member');
     setAvatar('👧');
     setColor('#0d9488');
-    setAllowedWalletIds(wallets.map((w) => w.id)); // default to all
+    setAllowedWalletIds(allWallets.length > 0 ? [allWallets[0].id] : []);
     setPermissions({
-      canAddBills: false,
-      canAddGoals: true,
+      canAddBills: true,
+      canAddGoals: false,
       canEditBudgets: false,
       canViewHouseholdReports: false,
     });
@@ -84,7 +85,7 @@ export const FamilyMembersView: React.FC = () => {
       avatar,
       color,
       patternSequence: newMemberPattern.length > 0 ? newMemberPattern : [0, 1, 2, 4],
-      allowedWalletIds: role === 'admin' ? [] : allowedWalletIds,
+      allowedWalletIds: role === 'admin' ? [] : (allowedWalletIds.length > 0 ? allowedWalletIds : (allWallets[0] ? [allWallets[0].id] : [])),
       permissions:
         role === 'admin'
           ? {
@@ -93,7 +94,12 @@ export const FamilyMembersView: React.FC = () => {
               canEditBudgets: true,
               canViewHouseholdReports: true,
             }
-          : permissions,
+          : {
+              canAddBills: true,
+              canAddGoals: false,
+              canEditBudgets: false,
+              canViewHouseholdReports: false,
+            },
     });
 
     setIsAddModalOpen(false);
@@ -101,7 +107,25 @@ export const FamilyMembersView: React.FC = () => {
   };
 
   const handleSaveEdit = (user: FamilyUser) => {
-    updateFamilyUser(user);
+    const finalUser: FamilyUser = {
+      ...user,
+      permissions:
+        user.role === 'admin'
+          ? {
+              canAddBills: true,
+              canAddGoals: true,
+              canEditBudgets: true,
+              canViewHouseholdReports: true,
+            }
+          : {
+              canAddBills: true,
+              canAddGoals: false,
+              canEditBudgets: false,
+              canViewHouseholdReports: false,
+            },
+      allowedWalletIds: user.role === 'admin' ? [] : user.allowedWalletIds,
+    };
+    updateFamilyUser(finalUser);
     setEditingUser(null);
   };
 
@@ -401,7 +425,7 @@ export const FamilyMembersView: React.FC = () => {
                       Accessible Wallets
                     </label>
                     <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-                      {wallets.map((w) => {
+                      {allWallets.map((w) => {
                         const checked = allowedWalletIds.includes(w.id);
                         return (
                           <label
@@ -506,12 +530,33 @@ export const FamilyMembersView: React.FC = () => {
                 </label>
                 <select
                   value={editingUser.role}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const newRole = e.target.value as UserRole;
                     setEditingUser({
                       ...editingUser,
-                      role: e.target.value as UserRole,
-                    })
-                  }
+                      role: newRole,
+                      permissions:
+                        newRole === 'admin'
+                          ? {
+                              canAddBills: true,
+                              canAddGoals: true,
+                              canEditBudgets: true,
+                              canViewHouseholdReports: true,
+                            }
+                          : {
+                              canAddBills: true,
+                              canAddGoals: false,
+                              canEditBudgets: false,
+                              canViewHouseholdReports: false,
+                            },
+                      allowedWalletIds:
+                        newRole === 'admin'
+                          ? []
+                          : (editingUser.allowedWalletIds.length > 0
+                              ? editingUser.allowedWalletIds
+                              : (allWallets[0] ? [allWallets[0].id] : [])),
+                    });
+                  }}
                   className="w-full px-3 py-2.5 rounded-xl border border-slate-200 font-medium text-slate-800 bg-white"
                 >
                   <option value="member">Member</option>
@@ -525,7 +570,7 @@ export const FamilyMembersView: React.FC = () => {
                     Allowed Wallets (Member can only see & spend from checked wallets)
                   </label>
                   <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                    {wallets.map((w) => {
+                    {allWallets.map((w) => {
                       const checked = editingUser.allowedWalletIds.includes(w.id);
                       return (
                         <label
