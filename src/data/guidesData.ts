@@ -79,7 +79,7 @@ export const guidesData: Record<GuideId, GuideTopic> = {
     concept: 'Mount an old Android tablet (running Termux) or iPad on your kitchen counter or fridge. Tablet Mode provides a large, high-contrast, ambient display showing the household budget pulse, upcoming bills, and quick-action buttons for anyone to log expenses effortlessly.',
     steps: [
       'Mount your tablet and switch to Tablet Mode from the header or settings.',
-      'Tap "+ Log Expense", select your avatar, and swipe your 9-dot pattern.',
+      'Tap "+ Log", select your avatar, and swipe your 9-dot pattern.',
       'The quick logger opens pre-filtered with your permitted wallets.',
       'Enter the amount and merchant, then tap Save.',
       'The tablet automatically returns to the ambient household view after 15 seconds of inactivity.'

@@ -11,6 +11,8 @@ import {
   Wallet,
   ArrowLeft,
   ArrowRight,
+  ArrowUpRight,
+  ArrowDownLeft,
   CheckCircle2,
   Check,
   X,
@@ -32,9 +34,10 @@ import {
   Landmark,
   Zap,
   Target,
+  Edit2,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
-import { FamilyUser, Wallet as WalletType } from '../../types/finance';
+import { FamilyUser, Wallet as WalletType, TransactionType } from '../../types/finance';
 import { PatternLock } from '../auth/PatternLock';
 import { comparePatterns } from '../../utils/patternAuth';
 import { formatCurrency, formatCurrencyExact, formatDateDisplay, formatTabletDateDisplay } from '../../utils/formatters';
@@ -68,6 +71,7 @@ export const TabletKioskView: React.FC = () => {
     wallets,
     categories,
     addTransaction,
+    updateWallet,
     setIsTabletMode,
     setIsGuideOpenWithId,
     triggerConfetti,
@@ -154,10 +158,54 @@ export const TabletKioskView: React.FC = () => {
   const [viewBalancesStep, setViewBalancesStep] = useState<'select-user' | 'verify-pattern' | 'wallets-view'>('select-user');
   const [activeBalancesUser, setActiveBalancesUser] = useState<FamilyUser | null>(null);
 
+  // Edit Wallet Balance in Tablet Mode
+  const [editingWalletForBalance, setEditingWalletForBalance] = useState<WalletType | null>(null);
+  const [editBalanceInput, setEditBalanceInput] = useState<string>('');
+  const [editBalanceError, setEditBalanceError] = useState<string>('');
+  const [editBalanceSuccess, setEditBalanceSuccess] = useState<string>('');
+
+  const handleStartEditWallet = (wallet: WalletType) => {
+    setEditingWalletForBalance(wallet);
+    setEditBalanceInput(wallet.balance.toString());
+    setEditBalanceError('');
+    setEditBalanceSuccess('');
+    resetIdleTimer();
+  };
+
+  const handleAdjustEditBalance = (delta: number) => {
+    const current = parseFloat(editBalanceInput) || 0;
+    const next = parseFloat((current + delta).toFixed(2));
+    setEditBalanceInput(next.toString());
+    resetIdleTimer();
+  };
+
+  const handleSaveEditBalance = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!editingWalletForBalance) return;
+    const val = parseFloat(editBalanceInput);
+    if (isNaN(val)) {
+      setEditBalanceError('Please enter a valid numeric balance');
+      return;
+    }
+
+    updateWallet({
+      ...editingWalletForBalance,
+      balance: val,
+    });
+
+    setEditBalanceSuccess(`Updated ${editingWalletForBalance.name} balance!`);
+    resetIdleTimer();
+    setTimeout(() => {
+      setEditingWalletForBalance(null);
+      setEditBalanceSuccess('');
+    }, 900);
+  };
+
   const handleOpenViewBalances = () => {
     setIsViewBalancesOpen(true);
     setViewBalancesStep('select-user');
     setActiveBalancesUser(null);
+    setEditingWalletForBalance(null);
     resetIdleTimer();
   };
 
@@ -184,6 +232,7 @@ export const TabletKioskView: React.FC = () => {
     setIsViewBalancesOpen(false);
     setViewBalancesStep('select-user');
     setActiveBalancesUser(null);
+    setEditingWalletForBalance(null);
   };
 
   // Kiosk Logging Modal Flow
@@ -191,7 +240,8 @@ export const TabletKioskView: React.FC = () => {
   const [kioskStep, setKioskStep] = useState<'select-user' | 'verify-pattern' | 'amount-step' | 'category-step'>('select-user');
   const [activeKioskUser, setActiveKioskUser] = useState<FamilyUser | null>(null);
 
-  // Quick Add Form Data
+  // Quick Add Form Data (Supports both Expense and Income)
+  const [transactionType, setTransactionType] = useState<TransactionType>('expense');
   const [amount, setAmount] = useState<number>(0);
   const [amountInputStr, setAmountInputStr] = useState<string>('');
   const [merchant, setMerchant] = useState('');
@@ -216,6 +266,7 @@ export const TabletKioskView: React.FC = () => {
     setIsKioskActionOpen(true);
     setKioskStep('select-user');
     setActiveKioskUser(null);
+    setTransactionType('expense');
     setAmount(0);
     setAmountInputStr('');
     setMerchant('');
@@ -272,15 +323,17 @@ export const TabletKioskView: React.FC = () => {
     resetIdleTimer();
   };
 
-  const handleSubmitExpense = (e?: React.FormEvent) => {
+  const handleSubmitTransaction = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (amount <= 0) return;
 
+    const isIncome = transactionType === 'income';
+
     addTransaction({
-      merchant: merchant.trim() || selectedCategory,
+      merchant: merchant.trim() || (isIncome ? 'Income Deposit' : selectedCategory),
       amount,
-      category: selectedCategory,
-      type: 'expense',
+      category: isIncome ? 'Income' : selectedCategory,
+      type: transactionType,
       date: new Date().toISOString().split('T')[0],
       walletId: selectedWalletId,
       userId: activeKioskUser?.id,
@@ -288,7 +341,9 @@ export const TabletKioskView: React.FC = () => {
     });
 
     triggerConfetti();
-    setActionSuccessMessage(`Logged ${formatCurrency(amount, preferences.currency)} by ${activeKioskUser?.name}!`);
+    setActionSuccessMessage(
+      `Logged ${formatCurrency(amount, preferences.currency)} ${isIncome ? 'income' : 'expense'} by ${activeKioskUser?.name}!`
+    );
 
     setTimeout(() => {
       handleCloseKioskAction();
@@ -299,6 +354,7 @@ export const TabletKioskView: React.FC = () => {
     setIsKioskActionOpen(false);
     setKioskStep('select-user');
     setActiveKioskUser(null);
+    setTransactionType('expense');
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
   };
 
@@ -366,69 +422,63 @@ export const TabletKioskView: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center space-x-2.5 sm:space-x-3">
+        <div className="flex items-center gap-1.5 sm:gap-2 ml-auto">
           <GuideButton
             guideId="tablet-mode"
             onOpenGuide={(id) => setIsGuideOpenWithId(id)}
-            className="text-white hover:text-teal-300"
+            className="text-white hover:text-teal-300 w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center bg-white/5 border border-white/10 hover:bg-white/10 transition-all active:scale-95"
           />
 
-          {/* Scale Switcher: Standard vs Jumbo Room View */}
+          {/* Scale Switcher: Standard vs Jumbo Room View (Icon-only, bigger, touch-friendly) */}
           <button
             onClick={toggleScaleMode}
-            className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center space-x-1.5 border transition-all active:scale-95 ${
+            className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center border transition-all active:scale-95 ${
               isJumbo
                 ? 'bg-teal-500/25 text-teal-300 border-teal-400/50 shadow-lg shadow-teal-500/20'
                 : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
             }`}
-            title="Toggle between Standard Display and Jumbo Room Scale"
+            title={isJumbo ? 'Scale: Jumbo (Tap for Standard)' : 'Scale: Standard (Tap for Jumbo)'}
+            aria-label={isJumbo ? 'Scale: Jumbo' : 'Scale: Standard'}
           >
-            {isJumbo ? <ZoomOut className="w-4 h-4" /> : <ZoomIn className="w-4 h-4" />}
-            <span className="hidden sm:inline">
-              {isJumbo ? 'Scale: Jumbo' : 'Scale: Standard'}
-            </span>
+            {isJumbo ? <ZoomOut className="w-5 h-5" /> : <ZoomIn className="w-5 h-5" />}
           </button>
 
-          {/* Full Screen Toggle Button */}
+          {/* Full Screen Toggle Button (Icon-only, bigger, touch-friendly) */}
           <button
             onClick={toggleFullscreen}
-            className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center space-x-1.5 border transition-all active:scale-95 ${
+            className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center border transition-all active:scale-95 ${
               isFullscreen
                 ? 'bg-cyan-500/25 text-cyan-300 border-cyan-400/50 shadow-lg shadow-cyan-500/20'
                 : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
             }`}
             title={isFullscreen ? 'Exit Full Screen' : 'Enter Full Screen'}
+            aria-label={isFullscreen ? 'Exit Full Screen' : 'Enter Full Screen'}
           >
-            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-            <span className="hidden sm:inline">
-              {isFullscreen ? 'Exit Fullscreen' : 'Full Screen'}
-            </span>
+            {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
           </button>
 
-          {/* Wake Lock Button */}
+          {/* Wake Lock Button (Icon-only, bigger, touch-friendly) */}
           <button
             onClick={toggleWakeLock}
-            className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center space-x-1.5 border transition-all active:scale-95 ${
+            className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center border transition-all active:scale-95 ${
               isWakeLocked
                 ? 'bg-amber-500/25 text-amber-300 border-amber-400/50 shadow-lg shadow-amber-500/20'
                 : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
             }`}
-            title="Keep tablet screen awake perpetually"
+            title={isWakeLocked ? 'Screen Awake: ON' : 'Keep Screen Awake'}
+            aria-label={isWakeLocked ? 'Awake: ON' : 'Keep Awake'}
           >
-            <Sun className="w-4 h-4" />
-            <span className="hidden sm:inline">
-              {isWakeLocked ? 'Awake: ON' : 'Keep Awake'}
-            </span>
+            <Sun className="w-5 h-5" />
           </button>
 
-          {/* Exit Tablet Mode Button */}
+          {/* Exit Tablet Mode Button (Icon-only, bigger, touch-friendly) */}
           <button
             onClick={() => setIsTabletMode(false)}
-            className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/20 text-white border border-white/15 transition-all flex items-center space-x-1.5 active:scale-95"
-            title="Exit Tablet Mode to Standard Desktop"
+            className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-white/10 hover:bg-rose-500/20 hover:text-rose-300 hover:border-rose-400/30 text-white border border-white/15 transition-all flex items-center justify-center active:scale-95"
+            title="Exit Tablet Mode"
+            aria-label="Exit Tablet Mode"
           >
-            <LogOut className="w-4 h-4" />
-            <span className="hidden sm:inline">Exit</span>
+            <LogOut className="w-5 h-5" />
           </button>
         </div>
       </div>
@@ -633,15 +683,15 @@ export const TabletKioskView: React.FC = () => {
             <span>View balances</span>
           </button>
 
-          {/* UPDATED BUTTON: Log Expense (No '+' and no '(Touch)') */}
+          {/* UPDATED BUTTON: + Log */}
           <button
             onClick={handleOpenLogExpense}
-            className={`flex-1 sm:flex-none bg-gradient-to-r from-teal-400 via-teal-500 to-emerald-500 hover:from-teal-300 hover:to-emerald-400 text-slate-950 font-black rounded-2xl shadow-xl shadow-teal-500/25 flex items-center justify-center space-x-2.5 transition-all active:scale-95 group ${
-              isJumbo ? 'px-10 py-5 text-xl' : 'px-8 py-4 text-base sm:text-lg'
-            }`}
+            className={`flex-1 sm:flex-none min-w-[190px] sm:min-w-[210px] ${
+              isJumbo ? 'min-w-[230px] px-10 py-5 text-xl' : 'px-8 py-4 text-base sm:text-lg'
+            } bg-gradient-to-r from-teal-400 via-teal-500 to-emerald-500 hover:from-teal-300 hover:to-emerald-400 text-slate-950 font-black rounded-2xl shadow-xl shadow-teal-500/25 flex items-center justify-center space-x-2.5 transition-all active:scale-95 group`}
           >
             <PlusCircle className="w-6 h-6 text-slate-950 group-hover:rotate-90 transition-transform duration-300" />
-            <span>Log Expense</span>
+            <span>+ Log</span>
           </button>
         </div>
       </div>
@@ -803,24 +853,37 @@ export const TabletKioskView: React.FC = () => {
                             </span>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <span
-                            className={`text-base font-black ${
-                              isCredit ? 'text-rose-600' : 'text-slate-900'
-                            } block`}
+                        <div className="flex items-center gap-2.5 sm:gap-3">
+                          <div className="text-right">
+                            <span
+                              className={`text-base font-black ${
+                                isCredit ? 'text-rose-600' : 'text-slate-900'
+                              } block`}
+                            >
+                              {isCredit ? '-' : ''}
+                              {formatCurrency(w.balance, preferences.currency)}
+                            </span>
+                            {w.limit ? (
+                              <span className="text-[10px] text-slate-400 font-semibold">
+                                Limit: {formatCurrency(w.limit, preferences.currency)}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-emerald-600 font-bold uppercase">
+                                {w.type}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Edit Wallet Balance Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleStartEditWallet(w)}
+                            className="p-2 sm:px-3 sm:py-2 rounded-xl bg-slate-100 hover:bg-teal-50 text-slate-600 hover:text-teal-700 transition-all flex items-center gap-1.5 active:scale-95 border border-slate-200/70"
+                            title={`Edit ${w.name} balance`}
                           >
-                            {isCredit ? '-' : ''}
-                            {formatCurrency(w.balance, preferences.currency)}
-                          </span>
-                          {w.limit ? (
-                            <span className="text-[10px] text-slate-400 font-semibold">
-                              Limit: {formatCurrency(w.limit, preferences.currency)}
-                            </span>
-                          ) : (
-                            <span className="text-[10px] text-emerald-600 font-bold uppercase">
-                              {w.type}
-                            </span>
-                          )}
+                            <Edit2 className="w-3.5 h-3.5" />
+                            <span className="text-xs font-bold hidden sm:inline">Edit</span>
+                          </button>
                         </div>
                       </div>
                     );
@@ -839,6 +902,117 @@ export const TabletKioskView: React.FC = () => {
                   >
                     Done
                   </button>
+                </div>
+              </div>
+            )}
+
+            {/* EDIT WALLET BALANCE OVERLAY MODAL */}
+            {editingWalletForBalance && (
+              <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
+                <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 text-slate-800 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0"
+                        style={{ backgroundColor: editingWalletForBalance.color }}
+                      >
+                        <Wallet className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-900 text-base">
+                          Edit Wallet Balance
+                        </h4>
+                        <p className="text-xs text-slate-400">
+                          {editingWalletForBalance.name} ({editingWalletForBalance.type})
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditingWalletForBalance(null)}
+                      className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {editBalanceSuccess ? (
+                    <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 text-emerald-800 text-sm font-bold text-center flex items-center justify-center gap-2">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                      <span>{editBalanceSuccess}</span>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleSaveEditBalance} className="space-y-4">
+                      <div className="text-center py-3 bg-slate-50 rounded-2xl border border-slate-100">
+                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 block mb-1">
+                          Current / Reconciled Balance ({preferences.currency})
+                        </span>
+                        <div className="flex items-center justify-center gap-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            autoFocus
+                            value={editBalanceInput}
+                            onChange={(e) => {
+                              setEditBalanceInput(e.target.value);
+                              setEditBalanceError('');
+                              resetIdleTimer();
+                            }}
+                            className="text-4xl font-black text-slate-900 tracking-tight text-center max-w-[200px] bg-transparent focus:outline-none"
+                          />
+                          <span className="text-2xl font-black text-teal-600">
+                            {preferences.currencySymbol}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Tablet Quick Increment Buttons */}
+                      <div className="space-y-1.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block text-center">
+                          Quick Adjust Balance
+                        </span>
+                        <div className="grid grid-cols-6 gap-1.5">
+                          {[-100, -50, -10, 10, 50, 100].map((delta) => (
+                            <button
+                              key={delta}
+                              type="button"
+                              onClick={() => handleAdjustEditBalance(delta)}
+                              className={`py-2 rounded-xl text-xs font-bold border transition-all active:scale-95 ${
+                                delta < 0
+                                  ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                                  : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                              }`}
+                            >
+                              {delta > 0 ? `+${delta}` : delta}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {editBalanceError && (
+                        <p className="text-xs text-rose-600 font-semibold text-center">
+                          {editBalanceError}
+                        </p>
+                      )}
+
+                      <div className="pt-2 flex items-center justify-end gap-2.5">
+                        <button
+                          type="button"
+                          onClick={() => setEditingWalletForBalance(null)}
+                          className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-100 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-white font-bold text-xs shadow-md transition-all active:scale-95 flex items-center gap-1.5"
+                        >
+                          <Check className="w-4 h-4" />
+                          <span>Save Balance</span>
+                        </button>
+                      </div>
+                    </form>
+                  )}
                 </div>
               </div>
             )}
@@ -863,10 +1037,10 @@ export const TabletKioskView: React.FC = () => {
               <div className="text-center space-y-5">
                 <div>
                   <h3 className="text-2xl font-bold text-slate-800">
-                    Who is spending?
+                    Who is logging?
                   </h3>
                   <p className="text-xs text-slate-500 mt-1">
-                    Select your avatar to unlock your personal expense wallet.
+                    Select your avatar to log an expense or income.
                   </p>
                 </div>
 
@@ -920,9 +1094,9 @@ export const TabletKioskView: React.FC = () => {
               </div>
             )}
 
-            {/* STEP 3A: Progressive Expense Logger - Part 1: Amount */}
+            {/* STEP 3A: Progressive Logger - Part 1: Type & Amount */}
             {kioskStep === 'amount-step' && activeKioskUser && (
-              <div className="space-y-5 text-left">
+              <div className="space-y-4 text-left">
                 {/* User Verification Header */}
                 <div className="flex items-center space-x-2.5 pb-2 border-b border-slate-100">
                   <span className="text-2xl">{activeKioskUser.avatar}</span>
@@ -936,10 +1110,44 @@ export const TabletKioskView: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Tablet-Friendly Segmented Slider: Expense vs Income */}
+                <div className="bg-slate-100 p-1.5 rounded-2xl flex items-center gap-1.5 border border-slate-200/80">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTransactionType('expense');
+                      resetIdleTimer();
+                    }}
+                    className={`flex-1 py-3 px-4 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-95 ${
+                      transactionType === 'expense'
+                        ? 'bg-rose-500 text-white shadow-md shadow-rose-500/25 ring-2 ring-rose-400'
+                        : 'text-slate-500 hover:text-slate-800 hover:bg-white/60'
+                    }`}
+                  >
+                    <ArrowUpRight className="w-4 h-4 stroke-[2.5]" />
+                    <span>Expense</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTransactionType('income');
+                      resetIdleTimer();
+                    }}
+                    className={`flex-1 py-3 px-4 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-95 ${
+                      transactionType === 'income'
+                        ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25 ring-2 ring-emerald-400'
+                        : 'text-slate-500 hover:text-slate-800 hover:bg-white/60'
+                    }`}
+                  >
+                    <ArrowDownLeft className="w-4 h-4 stroke-[2.5]" />
+                    <span>Income</span>
+                  </button>
+                </div>
+
                 {/* Amount Display */}
                 <div className="text-center py-2 bg-slate-50 rounded-2xl border border-slate-100 p-4">
                   <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 block mb-1">
-                    Enter Amount ({preferences.currency})
+                    Enter {transactionType === 'income' ? 'Income' : 'Expense'} Amount ({preferences.currency})
                   </span>
                   <div className="flex items-center justify-center gap-2">
                     <input
@@ -1019,7 +1227,7 @@ export const TabletKioskView: React.FC = () => {
                 {/* Optional Merchant / Description */}
                 <div>
                   <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                    Merchant or Description (Optional)
+                    {transactionType === 'income' ? 'Source or Description (Optional)' : 'Merchant or Description (Optional)'}
                   </label>
                   <input
                     type="text"
@@ -1028,7 +1236,11 @@ export const TabletKioskView: React.FC = () => {
                       setMerchant(e.target.value);
                       resetIdleTimer();
                     }}
-                    placeholder="e.g. Grocery Store, Coffee, Bakery"
+                    placeholder={
+                      transactionType === 'income'
+                        ? 'e.g. Salary, Client Pay, Cash Gift, Bonus'
+                        : 'e.g. Grocery Store, Coffee, Bakery'
+                    }
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-400 text-xs font-semibold text-slate-800"
                   />
                 </div>
@@ -1051,19 +1263,26 @@ export const TabletKioskView: React.FC = () => {
                     }}
                     className="px-6 py-3 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 disabled:opacity-40 text-white font-bold text-xs shadow-md transition-all flex items-center gap-2"
                   >
-                    <span>Next: Category & Wallet</span>
+                    <span>{transactionType === 'income' ? 'Next: Select Wallet' : 'Next: Category & Wallet'}</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
               </div>
             )}
 
-            {/* STEP 3B: Progressive Expense Logger - Part 2: Category & Account as Buttons */}
+            {/* STEP 3B: Progressive Logger - Part 2: Category & Account as Buttons */}
             {kioskStep === 'category-step' && activeKioskUser && (
               <div className="space-y-4 text-left">
                 {/* Amount Summary Pill */}
                 <div className="p-3 bg-teal-50 rounded-2xl border border-teal-200 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full ${
+                      transactionType === 'income'
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                        : 'bg-rose-100 text-rose-800 border border-rose-300'
+                    }`}>
+                      {transactionType}
+                    </span>
                     <span className="text-xs font-bold text-teal-800 uppercase tracking-wider">
                       Amount:
                     </span>
@@ -1095,84 +1314,129 @@ export const TabletKioskView: React.FC = () => {
                   </div>
                 ) : (
                   <>
-                    {/* Category Buttons Grid */}
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
-                        1. Select Category
-                      </label>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[160px] overflow-y-auto pr-1">
-                        {categories.map((c) => {
-                          const Icon = iconMap[c.icon] || ShoppingBag;
-                          const isSelected = selectedCategory.toLowerCase() === c.name.toLowerCase();
-                          return (
-                            <button
-                              key={c.id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedCategory(c.name);
-                                resetIdleTimer();
-                              }}
-                              className={`p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all ${
-                                isSelected
-                                  ? 'border-teal-500 bg-teal-50 ring-2 ring-teal-400 text-teal-950 font-bold shadow-xs'
-                                  : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 font-medium'
-                              }`}
-                            >
-                              <div
-                                className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                                style={{
-                                  backgroundColor: `${c.color}20`,
-                                  color: c.color,
-                                }}
-                              >
-                                <Icon className="w-3.5 h-3.5" />
-                              </div>
-                              <span className="text-xs truncate">{c.name}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
+                    {/* EXPENSE FLOW: Category Grid + Spending Wallet Grid */}
+                    {transactionType === 'expense' ? (
+                      <>
+                        {/* Category Buttons Grid */}
+                        <div>
+                          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
+                            1. Select Category
+                          </label>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[160px] overflow-y-auto pr-1">
+                            {categories.map((c) => {
+                              const Icon = iconMap[c.icon] || ShoppingBag;
+                              const isSelected = selectedCategory.toLowerCase() === c.name.toLowerCase();
+                              return (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedCategory(c.name);
+                                    resetIdleTimer();
+                                  }}
+                                  className={`p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all ${
+                                    isSelected
+                                      ? 'border-teal-500 bg-teal-50 ring-2 ring-teal-400 text-teal-950 font-bold shadow-xs'
+                                      : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 font-medium'
+                                  }`}
+                                >
+                                  <div
+                                    className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                                    style={{
+                                      backgroundColor: `${c.color}20`,
+                                      color: c.color,
+                                    }}
+                                  >
+                                    <Icon className="w-3.5 h-3.5" />
+                                  </div>
+                                  <span className="text-xs truncate">{c.name}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
 
-                    {/* Wallet Buttons Grid */}
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
-                        2. Select Spending Wallet
-                      </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {activeUserWallets.map((w) => {
-                          const isSelected = selectedWalletId === w.id;
-                          return (
-                            <button
-                              key={w.id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedWalletId(w.id);
-                                resetIdleTimer();
-                              }}
-                              className={`p-2.5 rounded-xl border text-left flex items-center gap-2.5 transition-all ${
-                                isSelected
-                                  ? 'border-teal-500 bg-teal-50 ring-2 ring-teal-400 text-teal-950 font-bold shadow-xs'
-                                  : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 font-medium'
-                              }`}
-                            >
-                              <div
-                                className="w-7 h-7 rounded-lg flex items-center justify-center text-white shrink-0"
-                                style={{ backgroundColor: w.color }}
+                        {/* Wallet Buttons Grid */}
+                        <div>
+                          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
+                            2. Select Spending Wallet
+                          </label>
+                          <div className="grid grid-cols-2 gap-2">
+                            {activeUserWallets.map((w) => {
+                              const isSelected = selectedWalletId === w.id;
+                              return (
+                                <button
+                                  key={w.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedWalletId(w.id);
+                                    resetIdleTimer();
+                                  }}
+                                  className={`p-2.5 rounded-xl border text-left flex items-center gap-2.5 transition-all ${
+                                    isSelected
+                                      ? 'border-teal-500 bg-teal-50 ring-2 ring-teal-400 text-teal-950 font-bold shadow-xs'
+                                      : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 font-medium'
+                                  }`}
+                                >
+                                  <div
+                                    className="w-7 h-7 rounded-lg flex items-center justify-center text-white shrink-0"
+                                    style={{ backgroundColor: w.color }}
+                                  >
+                                    <Wallet className="w-3.5 h-3.5" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <span className="text-xs block truncate font-semibold">{w.name}</span>
+                                    <span className="text-[10px] text-slate-400 block uppercase font-medium">
+                                      {w.type}
+                                    </span>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      /* INCOME FLOW: Receiving Wallet Grid */
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
+                          Select Receiving Account / Wallet
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {activeUserWallets.map((w) => {
+                            const isSelected = selectedWalletId === w.id;
+                            return (
+                              <button
+                                key={w.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedWalletId(w.id);
+                                  resetIdleTimer();
+                                }}
+                                className={`p-3 rounded-2xl border text-left flex items-center gap-3 transition-all ${
+                                  isSelected
+                                    ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-400 text-emerald-950 font-bold shadow-xs'
+                                    : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 font-medium'
+                                }`}
                               >
-                                <Wallet className="w-3.5 h-3.5" />
-                              </div>
-                              <div className="min-w-0">
-                                <span className="text-xs block truncate font-semibold">{w.name}</span>
-                                <span className="text-[10px] text-slate-400 block uppercase font-medium">
-                                  {w.type}
-                                </span>
-                              </div>
-                            </button>
-                          );
-                        })}
+                                <div
+                                  className="w-8 h-8 rounded-xl flex items-center justify-center text-white shrink-0"
+                                  style={{ backgroundColor: w.color }}
+                                >
+                                  <Wallet className="w-4 h-4" />
+                                </div>
+                                <div className="min-w-0">
+                                  <span className="text-xs block truncate font-bold">{w.name}</span>
+                                  <span className="text-[10px] text-slate-400 block uppercase font-medium">
+                                    {w.type} • {formatCurrency(w.balance, preferences.currency)}
+                                  </span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     {/* Actions */}
                     <div className="pt-2 flex items-center justify-between gap-3">
@@ -1190,11 +1454,15 @@ export const TabletKioskView: React.FC = () => {
 
                       <button
                         type="button"
-                        onClick={() => handleSubmitExpense()}
-                        className="px-6 py-3 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-white font-bold text-xs shadow-md transition-all flex items-center gap-1.5 active:scale-95"
+                        onClick={() => handleSubmitTransaction()}
+                        className={`px-6 py-3 rounded-xl text-white font-bold text-xs shadow-md transition-all flex items-center gap-1.5 active:scale-95 ${
+                          transactionType === 'income'
+                            ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 shadow-emerald-500/20'
+                            : 'bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 shadow-teal-500/20'
+                        }`}
                       >
                         <Check className="w-4 h-4" />
-                        <span>Save Transaction</span>
+                        <span>{transactionType === 'income' ? 'Save Income' : 'Save Expense'}</span>
                       </button>
                     </div>
                   </>
