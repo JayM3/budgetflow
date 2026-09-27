@@ -4,6 +4,7 @@ import { PatternLock } from './PatternLock';
 import { FamilyUser } from '../../types/finance';
 import { comparePatterns } from '../../utils/patternAuth';
 import { useFinance } from '../../context/FinanceContext';
+import { api } from '../../services/api';
 
 interface UserSelectModalProps {
   isOpen: boolean;
@@ -46,8 +47,24 @@ export const UserSelectModal: React.FC<UserSelectModalProps> = ({
   if (!isOpen) return null;
 
   // Handle Login Pattern Verification
-  const handleLoginPattern = (pattern: number[]): boolean => {
+  const handleLoginPattern = async (pattern: number[]): Promise<boolean> => {
     if (!selectedUser) return false;
+
+    // In Self-Hosted Hub mode, verify with server to retrieve active session token
+    if (isSelfHosted) {
+      const res = await api.verifyPattern(selectedUser.id, pattern);
+      if (res.success && res.user) {
+        setAuthError('');
+        setTimeout(() => {
+          onSelectUser(res.user);
+          setSelectedUser(null);
+        }, 300);
+        return true;
+      } else {
+        setAuthError(res.error || 'Incorrect pattern. Please try again.');
+        return false;
+      }
+    }
 
     if (selectedUser.patternSequence && selectedUser.patternSequence.length > 0) {
       const match = comparePatterns(selectedUser.patternSequence, pattern);

@@ -161,9 +161,9 @@ interface FinanceContextType {
 
   // Family Management Actions
   addFamilyUser: (user: Omit<FamilyUser, 'id'>) => void;
-  updateFamilyUser: (user: FamilyUser) => void;
-  deleteFamilyUser: (id: string) => void;
-  switchUser: (user: FamilyUser) => void;
+  updateFamilyUser: (user: FamilyUser) => void | Promise<void>;
+  deleteFamilyUser: (id: string) => void | Promise<void>;
+  switchUser: (user: FamilyUser) => void | Promise<void>;
   logoutUser: () => void;
   completeInitialSetup: (data: {
     householdName: string;
@@ -409,17 +409,36 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
             setFamilyUsers(remoteUsers);
             const savedUserStr = localStorage.getItem(LS_PREFIX + 'currentUser');
             const savedUser = savedUserStr ? JSON.parse(savedUserStr) : null;
-            if (!savedUser || !remoteUsers.some((u: any) => u.id === savedUser.id)) {
+            if (!savedUser) {
               setCurrentUser(null);
               setIsUserSelectModalOpen(true);
             } else {
-              setCurrentUser(savedUser);
+              const matchedUser = remoteUsers.find((u: any) => u.id === savedUser.id);
+              if (!matchedUser) {
+                setCurrentUser(null);
+                setIsUserSelectModalOpen(true);
+              } else {
+                // Ensure currentUser always has the latest role & permissions from the server!
+                setCurrentUser(matchedUser);
+                localStorage.setItem(LS_PREFIX + 'currentUser', JSON.stringify(matchedUser));
+                setPreferences((prev) => ({ ...prev, userName: matchedUser.name }));
+              }
             }
           }
 
           // Fetch full data from server
           const remoteData = await api.getData();
           if (remoteData) {
+            if (remoteData.currentUser) {
+              setCurrentUser((prev) => {
+                const updated = { ...(prev || {}), ...remoteData.currentUser };
+                localStorage.setItem(LS_PREFIX + 'currentUser', JSON.stringify(updated));
+                return updated;
+              });
+            }
+            if (remoteData.allUsers && remoteData.allUsers.length > 0) {
+              setFamilyUsers(remoteData.allUsers);
+            }
             if (remoteData.categories && remoteData.categories.length > 0) setCategories(remoteData.categories);
             if (remoteData.wallets && remoteData.wallets.length > 0) setAllWallets(remoteData.wallets);
             if (remoteData.transactions) setTransactions(remoteData.transactions);
@@ -439,6 +458,15 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
             const savedUserStr = localStorage.getItem(LS_PREFIX + 'currentUser');
             if (!savedUserStr) {
               setIsUserSelectModalOpen(true);
+            } else {
+              try {
+                const savedUser = JSON.parse(savedUserStr);
+                const matchedUser = familyUsers.find((u) => u.id === savedUser.id);
+                if (matchedUser) {
+                  setCurrentUser(matchedUser);
+                  localStorage.setItem(LS_PREFIX + 'currentUser', JSON.stringify(matchedUser));
+                }
+              } catch {}
             }
           }
         }
@@ -446,6 +474,85 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
     initServerCheck();
   }, []);
+
+  // Periodic & Focus auto-sync for live household updates (e.g. role promotions, wallet permission changes)
+  useEffect(() => {
+    if (!isSelfHosted) return;
+
+    let isSubscribed = true;
+
+    const syncLiveUserAndData = async () => {
+      try {
+        const savedUserStr = localStorage.getItem(LS_PREFIX + 'currentUser');
+        if (!savedUserStr) return;
+        const currentSaved = JSON.parse(savedUserStr);
+        if (!currentSaved?.id) return;
+
+        const remoteUsers = await api.getFamilyUsers();
+        if (!isSubscribed || !remoteUsers || remoteUsers.length === 0) return;
+
+        const freshUser = remoteUsers.find((u: any) => u.id === currentSaved.id);
+        if (!freshUser) return;
+
+        const roleChanged = freshUser.role !== currentSaved.role;
+        const permsChanged = JSON.stringify(freshUser.permissions) !== JSON.stringify(currentSaved.permissions);
+        const walletsChanged = JSON.stringify(freshUser.allowedWalletIds) !== JSON.stringify(currentSaved.allowedWalletIds);
+        const nameChanged = freshUser.name !== currentSaved.name;
+
+        if (roleChanged || permsChanged || walletsChanged || nameChanged) {
+          setFamilyUsers(remoteUsers);
+          setCurrentUser(freshUser);
+          localStorage.setItem(LS_PREFIX + 'currentUser', JSON.stringify(freshUser));
+          setPreferences((prev) => ({ ...prev, userName: freshUser.name }));
+
+          // Refresh dataset with updated role privileges
+          const remoteData = await api.getData();
+          if (isSubscribed && remoteData) {
+            if (remoteData.wallets) setAllWallets(remoteData.wallets);
+            if (remoteData.transactions) setTransactions(remoteData.transactions);
+            if (remoteData.bills) setBills(remoteData.bills);
+            if (remoteData.goals) setGoals(remoteData.goals);
+            if (remoteData.categories) setCategories(remoteData.categories);
+            if (remoteData.activityLogs) setActivityLogs(remoteData.activityLogs);
+          }
+        }
+      } catch (err) {
+        // Silent background sync
+      }
+    };
+
+    const handleFocus = () => syncLiveUserAndData();
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') syncLiveUserAndData();
+    };
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === LS_PREFIX + 'currentUser' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          setCurrentUser(parsed);
+        } catch {}
+      } else if (e.key === LS_PREFIX + 'familyUsers' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          setFamilyUsers(parsed);
+        } catch {}
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('storage', handleStorage);
+
+    const interval = setInterval(syncLiveUserAndData, 5000);
+
+    return () => {
+      isSubscribed = false;
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('storage', handleStorage);
+      clearInterval(interval);
+    };
+  }, [isSelfHosted]);
 
   // Sync to LocalStorage
   useEffect(() => {
@@ -1219,39 +1326,74 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  const updateFamilyUser = (updatedUser: FamilyUser) => {
+  const updateFamilyUser = async (updatedUser: FamilyUser) => {
     setFamilyUsers((prev) =>
       prev.map((u) => (u.id === updatedUser.id ? updatedUser : u))
     );
     if (currentUser?.id === updatedUser.id) {
       setCurrentUser(updatedUser);
+      localStorage.setItem(LS_PREFIX + 'currentUser', JSON.stringify(updatedUser));
+      setPreferences((prev) => ({ ...prev, userName: updatedUser.name }));
       if (updatedUser.role === 'member' && !['dashboard', 'transactions', 'wallets', 'settings'].includes(activeView)) {
         setActiveView('dashboard');
       }
     }
     if (isSelfHosted) {
-      api.updateMember(updatedUser.id, updatedUser);
+      await api.updateMember(updatedUser.id, updatedUser);
+      const [remoteUsers, remoteData] = await Promise.all([
+        api.getFamilyUsers(),
+        api.getData(),
+      ]);
+      if (remoteUsers && remoteUsers.length > 0) {
+        setFamilyUsers(remoteUsers);
+      }
+      if (remoteData) {
+        if (remoteData.wallets) setAllWallets(remoteData.wallets);
+        if (remoteData.transactions) setTransactions(remoteData.transactions);
+        if (remoteData.bills) setBills(remoteData.bills);
+        if (remoteData.goals) setGoals(remoteData.goals);
+        if (remoteData.categories) setCategories(remoteData.categories);
+        if (remoteData.activityLogs) setActivityLogs(remoteData.activityLogs);
+      }
     }
   };
 
-  const deleteFamilyUser = (id: string) => {
+  const deleteFamilyUser = async (id: string) => {
     setFamilyUsers((prev) => prev.filter((u) => u.id !== id));
     if (currentUser?.id === id) {
       const remaining = familyUsers.filter((u) => u.id !== id);
-      setCurrentUser(remaining[0] || null);
+      const nextUser = remaining[0] || null;
+      setCurrentUser(nextUser);
+      if (nextUser) {
+        localStorage.setItem(LS_PREFIX + 'currentUser', JSON.stringify(nextUser));
+      } else {
+        localStorage.removeItem(LS_PREFIX + 'currentUser');
+      }
     }
     if (isSelfHosted) {
-      api.deleteMember(id);
+      await api.deleteMember(id);
     }
   };
 
-  const switchUser = (user: FamilyUser) => {
+  const switchUser = async (user: FamilyUser) => {
     const latestUser = familyUsers.find((u) => u.id === user.id) || user;
     setCurrentUser(latestUser);
+    localStorage.setItem(LS_PREFIX + 'currentUser', JSON.stringify(latestUser));
     setPreferences((prev) => ({ ...prev, userName: latestUser.name }));
     setIsUserSelectModalOpen(false);
     if (latestUser.role === 'member' && !['dashboard', 'transactions', 'wallets', 'settings'].includes(activeView)) {
       setActiveView('dashboard');
+    }
+    if (isSelfHosted) {
+      const remoteData = await api.getData();
+      if (remoteData) {
+        if (remoteData.wallets) setAllWallets(remoteData.wallets);
+        if (remoteData.transactions) setTransactions(remoteData.transactions);
+        if (remoteData.bills) setBills(remoteData.bills);
+        if (remoteData.goals) setGoals(remoteData.goals);
+        if (remoteData.categories) setCategories(remoteData.categories);
+        if (remoteData.activityLogs) setActivityLogs(remoteData.activityLogs);
+      }
     }
   };
 

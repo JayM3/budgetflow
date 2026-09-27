@@ -49,3 +49,19 @@ export function getSession(token) {
 export function removeSession(token) {
   if (token) sessions.delete(token);
 }
+
+export function updateSessionsForUser(userId, updates) {
+  for (const [token, session] of sessions.entries()) {
+    if (session.userId === userId) {
+      sessions.set(token, { ...session, ...updates });
+    }
+  }
+}
+
+export function removeSessionsForUser(userId) {
+  for (const [token, session] of sessions.entries()) {
+    if (session.userId === userId) {
+      sessions.delete(token);
+    }
+  }
+}

@@ -5,7 +5,7 @@ import os from 'os';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { db } from './db.js';
-import { hashPattern, verifyPattern, createSession, getSession } from './auth.js';
+import { hashPattern, verifyPattern, createSession, getSession, updateSessionsForUser, removeSessionsForUser } from './auth.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -39,12 +39,40 @@ function authenticate(req, res, next) {
   if (!authHeader) {
     return res.status(401).json({ error: 'Missing authorization header' });
   }
-  const token = authHeader.replace('Bearer ', '');
+  const token = authHeader.replace('Bearer ', '').trim();
   const session = getSession(token);
   if (!session) {
     return res.status(401).json({ error: 'Invalid or expired session' });
   }
-  req.user = session;
+
+  // Live lookup from database so promotions/demotions take effect immediately
+  const state = db.getState();
+  const dbUser = state.users?.find((u) => u.id === session.userId);
+  if (!dbUser) {
+    return res.status(401).json({ error: 'User no longer exists' });
+  }
+
+  // Keep session up to date
+  session.role = dbUser.role;
+  session.name = dbUser.name;
+  session.allowedWalletIds = dbUser.allowedWalletIds || [];
+  session.permissions = dbUser.permissions || {
+    canAddBills: true,
+    canAddGoals: dbUser.role === 'admin',
+    canEditBudgets: dbUser.role === 'admin',
+    canViewHouseholdReports: dbUser.role === 'admin',
+  };
+
+  req.user = {
+    userId: dbUser.id,
+    name: dbUser.name,
+    role: dbUser.role,
+    avatar: dbUser.avatar,
+    color: dbUser.color,
+    allowedWalletIds: dbUser.allowedWalletIds || [],
+    permissions: session.permissions,
+    sessionCreatedAt: session.createdAt,
+  };
   next();
 }
 
@@ -339,6 +367,21 @@ app.post('/api/auth/register-member', (req, res) => {
   });
 });
 
+// 4c. Current Authenticated User Info
+app.get('/api/auth/me', authenticate, (req, res) => {
+  res.json({
+    user: {
+      id: req.user.userId,
+      name: req.user.name,
+      role: req.user.role,
+      avatar: req.user.avatar,
+      color: req.user.color,
+      allowedWalletIds: req.user.allowedWalletIds || [],
+      permissions: req.user.permissions || {},
+    },
+  });
+});
+
 /* =========================================================
    AUTHENTICATED DATA APIS (WALLET-PERMISSION FILTERED)
    ========================================================= */
@@ -369,6 +412,15 @@ app.get('/api/data', authenticate, (req, res) => {
     bills: state.bills,
     goals: state.goals,
     activityLogs: state.activityLogs || [],
+    currentUser: {
+      id: user.userId,
+      name: user.name,
+      role: user.role,
+      avatar: user.avatar,
+      color: user.color,
+      allowedWalletIds: user.allowedWalletIds || [],
+      permissions: user.permissions || {},
+    },
     allUsers: isUserAdmin
       ? state.users.map((u) => ({
           id: u.id,
@@ -983,12 +1035,36 @@ app.put('/api/admin/users/:id', authenticate, (req, res) => {
     delete updates.patternSequence;
   }
 
+  // If promoted to admin, grant full permissions and wallet access
+  if (updates.role === 'admin') {
+    updates.allowedWalletIds = [];
+    updates.permissions = {
+      canAddBills: true,
+      canAddGoals: true,
+      canEditBudgets: true,
+      canViewHouseholdReports: true,
+      ...(updates.permissions || {}),
+    };
+  }
+
   const updatedUsers = state.users.map((u) =>
     u.id === req.params.id ? { ...u, ...updates } : u
   );
 
   db.setState({ users: updatedUsers });
-  res.json({ success: true });
+
+  // Update in-memory sessions for user immediately
+  updateSessionsForUser(req.params.id, {
+    role: updates.role || user.role,
+    name: updates.name || user.name,
+    allowedWalletIds: updates.allowedWalletIds !== undefined ? updates.allowedWalletIds : user.allowedWalletIds,
+    permissions: updates.permissions || user.permissions,
+  });
+
+  const finalUser = updatedUsers.find((u) => u.id === req.params.id);
+  addActivityLog('update', 'user', `Updated user '${user.name}' (${updates.role || user.role})`, req.user);
+
+  res.json({ success: true, user: finalUser });
 });
 
 // 10. Admin: Delete Family Member
@@ -997,9 +1073,14 @@ app.delete('/api/admin/users/:id', authenticate, (req, res) => {
     return res.status(403).json({ error: 'Only admins can remove family members.' });
   }
   const state = db.getState();
+  const user = state.users.find((u) => u.id === req.params.id);
   db.setState({
     users: state.users.filter((u) => u.id !== req.params.id),
   });
+  removeSessionsForUser(req.params.id);
+  if (user) {
+    addActivityLog('delete', 'user', `Removed family member '${user.name}'`, req.user);
+  }
   res.json({ success: true });
 });
 

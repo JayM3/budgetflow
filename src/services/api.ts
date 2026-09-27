@@ -131,6 +131,24 @@ export const api = {
     return null;
   },
 
+  async getCurrentUser(): Promise<any | null> {
+    const token = this.getToken();
+    if (!token) return null;
+
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        return json.user || null;
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  },
+
   async createTransaction(tx: any): Promise<boolean> {
     const token = this.getToken();
     try {
