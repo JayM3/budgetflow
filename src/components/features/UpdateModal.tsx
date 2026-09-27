@@ -66,7 +66,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
   if (!isOpen) return null;
 
   const targetVersion = updateInfo?.latestVersion || 'Latest';
-  const currentVersion = updateInfo?.currentVersion || '1.0.0.1';
+  const currentVersion = updateInfo?.currentVersion || '1.0.1';
 
   const pollServerUntilOnline = async (): Promise<boolean> => {
     setModalState('reconnecting');

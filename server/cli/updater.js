@@ -78,11 +78,33 @@ export function getCurrentVersion() {
     const pkgPath = path.join(ROOT_DIR, 'package.json');
     if (fs.existsSync(pkgPath)) {
       const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
-      return pkg.version || '1.0.0.1';
+      return pkg.version || '1.0.1';
     }
   } catch (_) {}
-  return '1.0.0.1';
+  return '1.0.1';
 }
+
+/**
+ * Compare two semver-like version strings (e.g., '1.0.1' vs '1.0.0.1')
+ * Returns true if remote is strictly newer than local.
+ */
+export function isVersionNewer(remote, local) {
+  if (!remote || !local) return false;
+  const parse = (v) => v.replace(/^v/, '').split('.').map((n) => parseInt(n, 10) || 0);
+  const rParts = parse(remote);
+  const lParts = parse(local);
+  const len = Math.max(rParts.length, lParts.length);
+
+  for (let i = 0; i < len; i++) {
+    const r = rParts[i] || 0;
+    const l = lParts[i] || 0;
+    if (r > l) return true;
+    if (r < l) return false;
+  }
+  return false;
+}
+
+
 
 /**
  * Safe fetch helper using native fetch with User-Agent header
@@ -151,14 +173,13 @@ export async function checkForUpdate(options = {}) {
             assets: data.assets || [],
           };
 
-          // Simple semver clean comparison
-          const cleanTag = data.tag_name.replace(/^v/, '');
-          const cleanLocal = currentVer.replace(/^v/, '');
-          result.isReleaseNewer = cleanTag !== cleanLocal;
+          // Semver comparison
+          result.isReleaseNewer = isVersionNewer(data.tag_name, currentVer);
           if (result.isReleaseNewer) {
             result.updateAvailable = true;
             return result;
           }
+
         }
       }
     } catch (_) {
