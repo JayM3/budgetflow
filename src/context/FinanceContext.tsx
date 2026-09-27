@@ -51,6 +51,22 @@ export type ActiveView =
   | 'family'
   | 'settings';
 
+export const VALID_VIEWS: readonly ActiveView[] = [
+  'dashboard',
+  'budgets',
+  'transactions',
+  'bills',
+  'goals',
+  'reports',
+  'wallets',
+  'family',
+  'settings',
+] as const;
+
+export const isValidView = (val: unknown): val is ActiveView => {
+  return typeof val === 'string' && VALID_VIEWS.includes(val as ActiveView);
+};
+
 interface FinanceContextType {
   activeView: ActiveView;
   setActiveView: (view: ActiveView) => void;
@@ -60,6 +76,8 @@ interface FinanceContextType {
   setIsWhatIfOpen: (open: boolean) => void;
   isCsvImportOpen: boolean;
   setIsCsvImportOpen: (open: boolean) => void;
+  isAddRecurringOpen: boolean;
+  setIsAddRecurringOpen: (open: boolean) => void;
 
   // Environment & Modes
   isSelfHosted: boolean;
@@ -166,7 +184,17 @@ const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
 const LS_PREFIX = 'budgetflow_state_';
 
 export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [activeView, setActiveView] = useState<ActiveView>('dashboard');
+  const [activeView, setActiveView] = useState<ActiveView>(() => {
+    try {
+      const saved = localStorage.getItem(LS_PREFIX + 'activeView');
+      if (saved && isValidView(saved)) {
+        return saved;
+      }
+      return 'dashboard';
+    } catch {
+      return 'dashboard';
+    }
+  });
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const [isWhatIfOpen, setIsWhatIfOpen] = useState(false);
   const [isCsvImportOpen, setIsCsvImportOpen] = useState(false);
@@ -389,6 +417,14 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     localStorage.setItem(LS_PREFIX + 'wallets', JSON.stringify(allWallets));
   }, [allWallets]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LS_PREFIX + 'activeView', activeView);
+    } catch (e) {
+      console.error('Failed to save activeView to localStorage', e);
+    }
+  }, [activeView]);
 
   // Wallet Permissions Filter:
   // If currentUser is a member with allowedWalletIds, filter wallets and transactions
