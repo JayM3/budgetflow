@@ -39,6 +39,7 @@ import {
 } from '../utils/insightsEngine';
 import { saveLearnedMerchant } from '../utils/merchantRules';
 import { api, ServerStatus } from '../services/api';
+import { getTodayISO, calculateNextDueDate, advanceDueDateToFuture } from '../utils/formatters';
 
 export type ActiveView = 
   | 'dashboard'
@@ -128,6 +129,7 @@ interface FinanceContextType {
   deleteTransaction: (id: string) => void;
   updateTransaction: (tx: Transaction) => void;
   toggleBillPaid: (billId: string) => void;
+  checkAndProcessDueBills: () => void;
   updateCategoryAllocation: (categoryId: string, amount: number) => void;
   rebalanceCategories: (fromCategoryId: string, toCategoryId: string, amount: number) => void;
   createCategory: (cat: Omit<BudgetCategory, 'id'>) => void;
@@ -614,6 +616,34 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
   }, [isSelfHosted]);
 
+  // Recurring Commitments Auto-Check:
+  // Automatically check due bills & recurring income on scheduled date, spawning the next cycle
+  useEffect(() => {
+    // Check shortly after mount to allow initial remote/local sync to settle
+    const initialTimer = setTimeout(() => {
+      checkAndProcessDueBills();
+    }, 600);
+
+    // Periodically check every 30 seconds
+    const recurringInterval = setInterval(() => {
+      checkAndProcessDueBills();
+    }, 30000);
+
+    const handleFocusCheck = () => {
+      checkAndProcessDueBills();
+    };
+
+    window.addEventListener('focus', handleFocusCheck);
+    document.addEventListener('visibilitychange', handleFocusCheck);
+
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(recurringInterval);
+      window.removeEventListener('focus', handleFocusCheck);
+      document.removeEventListener('visibilitychange', handleFocusCheck);
+    };
+  }, []);
+
   // Sync to LocalStorage
   useEffect(() => {
     localStorage.setItem(LS_PREFIX + 'household', JSON.stringify(householdSettings));
@@ -1016,11 +1046,16 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Actions
   const addTransaction = (tx: Omit<Transaction, 'id'>) => {
     const nowIso = new Date().toISOString();
+    const todayStr = getTodayISO();
+    const txDateStr = (tx.date || nowIso).split('T')[0];
+    const isHistorical = tx.alreadyHappened !== undefined ? Boolean(tx.alreadyHappened) : (txDateStr < todayStr);
+
     const newTx: Transaction = {
       ...tx,
       id: 'tx-' + Date.now(),
       date: tx.date || nowIso,
       createdAt: nowIso,
+      alreadyHappened: isHistorical,
       userId: tx.userId || currentUser?.id,
       userName: tx.userName || currentUser?.name,
     };
@@ -1033,20 +1068,20 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       api.createTransaction(newTx);
     }
 
-    // Update wallet balance
-    if (tx.walletId) {
+    // Update wallet balance ONLY if transaction is not historical / already happened
+    if (newTx.walletId && !newTx.alreadyHappened) {
       setAllWallets((prevWallets) =>
         prevWallets.map((w) => {
-          if (w.id === tx.walletId) {
+          if (w.id === newTx.walletId) {
             if (w.type === 'credit') {
               return {
                 ...w,
-                balance: tx.type === 'expense' ? w.balance + tx.amount : w.balance - tx.amount,
+                balance: newTx.type === 'expense' ? w.balance + newTx.amount : w.balance - newTx.amount,
               };
             } else {
               return {
                 ...w,
-                balance: tx.type === 'income' ? w.balance + tx.amount : w.balance - tx.amount,
+                balance: newTx.type === 'income' ? w.balance + newTx.amount : w.balance - newTx.amount,
               };
             }
           }
@@ -1055,10 +1090,14 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       );
     }
 
-    logActivity('create', 'transaction', `Added transaction '${newTx.merchant}' (${newTx.amount} ${preferences.currencySymbol})`);
+    logActivity(
+      'create',
+      'transaction',
+      `Added transaction '${newTx.merchant}' (${newTx.amount} ${preferences.currencySymbol})${newTx.alreadyHappened ? ' [Historical - Wallet unchanged]' : ''}`
+    );
 
     // When income arrives, offer smart allocation if goals have % allocation
-    if (newTx.type === 'income') {
+    if (newTx.type === 'income' && !newTx.alreadyHappened) {
       const activeGoalsWithAlloc = goals.filter((g) => (g.allocationPercentage || 0) > 0);
       if (activeGoalsWithAlloc.length > 0) {
         setTimeout(() => {
@@ -1083,7 +1122,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       api.deleteTransaction(id);
     }
 
-    if (tx.walletId) {
+    if (tx.walletId && !tx.alreadyHappened) {
       setAllWallets((prevWallets) =>
         prevWallets.map((w) => {
           if (w.id === tx.walletId) {
@@ -1120,7 +1159,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     // Reconcile wallet balances for old vs new wallet/amount/type
     setAllWallets((prevWallets) => {
       let next = [...prevWallets];
-      if (oldTx.walletId) {
+      if (oldTx.walletId && !oldTx.alreadyHappened) {
         next = next.map((w) => {
           if (w.id === oldTx.walletId) {
             if (w.type === 'credit') {
@@ -1132,7 +1171,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
           return w;
         });
       }
-      if (updatedTx.walletId) {
+      if (updatedTx.walletId && !updatedTx.alreadyHappened) {
         next = next.map((w) => {
           if (w.id === updatedTx.walletId) {
             if (w.type === 'credit') {
@@ -1294,21 +1333,124 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  const isAutoProcessingRef = useRef(false);
+
   const toggleBillPaid = (billId: string) => {
-    let nextPaid = false;
-    setBills((prev) =>
-      prev.map((b) => {
-        if (b.id === billId) {
-          nextPaid = !b.isPaid;
-          if (nextPaid) triggerConfetti();
-          return { ...b, isPaid: nextPaid, paidByUserId: currentUser?.id };
+    const targetBill = stateRef.current.bills.find((b) => b.id === billId);
+    if (!targetBill) return;
+
+    const willBePaid = !targetBill.isPaid;
+    const todayStr = getTodayISO();
+
+    if (willBePaid) {
+      triggerConfetti();
+
+      // 1. Advance due date to the next future scheduled cycle
+      const nextDueDate = advanceDueDateToFuture(targetBill.dueDate, targetBill.frequency, todayStr);
+      const newBillInstance: Bill = {
+        ...targetBill,
+        id: 'bill-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
+        dueDate: nextDueDate,
+        isPaid: false,
+        paidByUserId: undefined,
+      };
+
+      // 2. Mark existing bill paid and append new instance
+      setBills((prev) =>
+        prev
+          .map((b) => (b.id === billId ? { ...b, isPaid: true, paidByUserId: currentUser?.id } : b))
+          .concat(newBillInstance)
+      );
+
+      // 3. Automatically record the payment transaction in the ledger
+      addTransaction({
+        merchant: targetBill.name,
+        amount: targetBill.amount,
+        category: targetBill.type === 'income' ? 'Income' : targetBill.category,
+        type: targetBill.type === 'income' ? 'income' : 'expense',
+        date: targetBill.dueDate || todayStr,
+        walletId: targetBill.walletId || stateRef.current.allWallets[0]?.id,
+        notes: `Recorded from recurring ${targetBill.type === 'income' ? 'income' : 'bill'} schedule`,
+        isRecurring: true,
+      });
+
+      // 4. Log audit activity
+      logActivity(
+        'pay',
+        'bill',
+        `Marked ${targetBill.type === 'income' ? 'recurring income' : 'bill'} '${targetBill.name}' paid (${targetBill.amount} ${preferences.currencySymbol}). Next cycle scheduled for ${nextDueDate}.`
+      );
+
+      if (isSelfHosted) {
+        api.updateBill(targetBill.id, { isPaid: true, paidByUserId: currentUser?.id });
+        api.createBill(newBillInstance);
+      }
+    } else {
+      // Uncheck an already paid bill
+      setBills((prev) =>
+        prev.map((b) => (b.id === billId ? { ...b, isPaid: false, paidByUserId: undefined } : b))
+      );
+      if (isSelfHosted) {
+        api.updateBill(billId, { isPaid: false, paidByUserId: undefined });
+      }
+      logActivity('update', 'bill', `Unmarked ${targetBill.type === 'income' ? 'recurring income' : 'bill'} '${targetBill.name}'`);
+    }
+  };
+
+  const checkAndProcessDueBills = () => {
+    if (isAutoProcessingRef.current) return;
+    const todayStr = getTodayISO();
+    const currentBills = stateRef.current.bills;
+    const dueUnpaidBills = currentBills.filter((b) => !b.isPaid && b.dueDate <= todayStr);
+    if (dueUnpaidBills.length === 0) return;
+
+    isAutoProcessingRef.current = true;
+    try {
+      const newBillsToAdd: Bill[] = [];
+      const updatedBillsList = currentBills.map((b) => {
+        if (!b.isPaid && b.dueDate <= todayStr) {
+          const updatedBill: Bill = { ...b, isPaid: true, paidByUserId: currentUser?.id };
+
+          const nextDueDate = advanceDueDateToFuture(b.dueDate, b.frequency, todayStr);
+          const nextInstance: Bill = {
+            ...b,
+            id: 'bill-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
+            dueDate: nextDueDate,
+            isPaid: false,
+            paidByUserId: undefined,
+          };
+          newBillsToAdd.push(nextInstance);
+
+          addTransaction({
+            merchant: b.name,
+            amount: b.amount,
+            category: b.type === 'income' ? 'Income' : b.category,
+            type: b.type === 'income' ? 'income' : 'expense',
+            date: b.dueDate,
+            walletId: b.walletId || stateRef.current.allWallets[0]?.id,
+            notes: `Automatic payment on scheduled date (${b.dueDate})`,
+            isRecurring: true,
+          });
+
+          logActivity(
+            'pay',
+            'bill',
+            `Auto-paid recurring ${b.type === 'income' ? 'income' : 'bill'} '${b.name}'. Next cycle scheduled for ${nextDueDate}.`
+          );
+
+          return updatedBill;
         }
         return b;
-      })
-    );
+      });
 
-    if (isSelfHosted) {
-      api.updateBill(billId, { isPaid: nextPaid, paidByUserId: currentUser?.id });
+      const finalBills = [...updatedBillsList, ...newBillsToAdd];
+      setBills(finalBills);
+
+      if (isSelfHosted) {
+        saveAll();
+      }
+    } finally {
+      isAutoProcessingRef.current = false;
     }
   };
 
@@ -1812,6 +1954,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         deleteTransaction,
         updateTransaction,
         toggleBillPaid,
+        checkAndProcessDueBills,
         updateCategoryAllocation,
         rebalanceCategories,
         createCategory,
