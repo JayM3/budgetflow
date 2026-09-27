@@ -9,6 +9,7 @@ import {
   Sparkles,
   User,
   DollarSign,
+  Github,
 } from 'lucide-react';
 import logoImg from '../../assets/logo.png';
 import { useFinance } from '../../context/FinanceContext';
@@ -123,10 +124,21 @@ export const SettingsView: React.FC = () => {
               <p className="text-[11px] text-cyan-200">Local-First Architecture • Offline Ready</p>
             </div>
           </div>
-          <span className="hidden sm:inline-flex items-center gap-1 px-3 py-1 rounded-full bg-cyan-400/20 text-cyan-200 text-xs font-semibold border border-cyan-300/30">
-            <ShieldCheck className="w-3.5 h-3.5 text-cyan-300" />
-            <span>Zero-Telemetry</span>
-          </span>
+          <div className="flex items-center gap-2">
+            <a
+              href="https://github.com/JayM3/budgetflow"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-cyan-200 hover:text-white text-xs font-semibold border border-white/20 transition-all"
+            >
+              <Github className="w-3.5 h-3.5" />
+              <span>GitHub</span>
+            </a>
+            <span className="hidden sm:inline-flex items-center gap-1 px-3 py-1 rounded-full bg-cyan-400/20 text-cyan-200 text-xs font-semibold border border-cyan-300/30">
+              <ShieldCheck className="w-3.5 h-3.5 text-cyan-300" />
+              <span>Zero-Telemetry</span>
+            </span>
+          </div>
         </div>
         <p className="text-xs text-cyan-100/80 leading-relaxed relative z-10">
           BudgetFlow has <strong className="text-white">zero servers</strong>, uses <strong className="text-white">zero external paid AI APIs</strong>, and costs <strong className="text-white">$0.00</strong> to run indefinitely. All transaction logs, merchant categorization rules, and safe-to-spend velocity calculations occur purely inside your browser.
@@ -262,6 +274,42 @@ export const SettingsView: React.FC = () => {
             <Trash2 className="w-4 h-4" />
             <span>Clear All & Start Clean Slate</span>
           </button>
+        </div>
+      </div>
+
+      {/* 6. GitHub Repository & Creator Credits Bar */}
+      <div className="bg-[#020b18] border border-cyan-950/80 rounded-2xl px-5 py-3.5 flex flex-wrap items-center justify-between gap-4 text-xs shadow-md">
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <span className="text-cyan-500 font-bold select-none">•</span>
+          <a
+            href="https://github.com/JayM3/budgetflow"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 font-medium transition-colors group"
+          >
+            <Github className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+            <span>Source Code</span>
+          </a>
+          <span className="text-cyan-500 font-bold select-none">•</span>
+          <a
+            href="https://github.com/JayM3/budgetflow/issues"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-cyan-400 hover:text-cyan-300 font-medium transition-colors"
+          >
+            Report an Issue
+          </a>
+        </div>
+        <div className="text-slate-400 text-xs font-medium flex items-center gap-1">
+          <span>By</span>
+          <a
+            href="https://github.com/JayM3"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-bold text-white hover:text-cyan-300 transition-colors"
+          >
+            JayM3
+          </a>
         </div>
       </div>
     </div>
