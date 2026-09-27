@@ -179,7 +179,17 @@ export const RecentTransactionsCard: React.FC = () => {
 
                     {/* Date */}
                     <td className="py-3 text-slate-500 font-medium">
-                      {formatDateDisplay(tx.date)}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span>{formatDateDisplay(tx.date)}</span>
+                        {tx.alreadyHappened && (
+                          <span
+                            className="text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200"
+                            title="Historical transaction (wallet balance unchanged)"
+                          >
+                            Historical
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                     {/* Amount */}

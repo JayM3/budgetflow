@@ -56,12 +56,22 @@ export const QuickAddModal: React.FC = () => {
   const [walletId, setWalletId] = useState(wallets[0]?.id || '');
   const [hasDate, setHasDate] = useState(false);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [alreadyHappened, setAlreadyHappened] = useState(false);
   const [notes, setNotes] = useState('');
 
   const todayStr = new Date().toISOString().split('T')[0];
   const isFutureDate = date > todayStr;
   const isPastDate = date < todayStr;
   const isTodayDate = date === todayStr;
+
+  // Auto-check "Already happened" when a past date is selected
+  useEffect(() => {
+    if (hasDate && isPastDate) {
+      setAlreadyHappened(true);
+    } else if (hasDate && isFutureDate) {
+      setAlreadyHappened(false);
+    }
+  }, [hasDate, isPastDate, isFutureDate]);
 
   // Sync default category and wallet
   useEffect(() => {
@@ -98,6 +108,7 @@ export const QuickAddModal: React.FC = () => {
     if (amount <= 0) return;
 
     const finalDate = hasDate ? date : new Date().toISOString().split('T')[0];
+    const isHistorical = alreadyHappened || (hasDate && isPastDate);
 
     addTransaction({
       merchant: merchant.trim() || (type === 'income' ? 'Income Deposit' : category),
@@ -105,6 +116,7 @@ export const QuickAddModal: React.FC = () => {
       category: type === 'income' ? 'Income' : category,
       type,
       date: finalDate,
+      alreadyHappened: isHistorical,
       walletId,
       notes: notes.trim() || undefined,
       userId: currentUser?.id,
@@ -119,6 +131,7 @@ export const QuickAddModal: React.FC = () => {
     setMerchant('');
     setNotes('');
     setHasDate(false);
+    setAlreadyHappened(false);
     setDate(new Date().toISOString().split('T')[0]);
   };
 
@@ -337,6 +350,31 @@ export const QuickAddModal: React.FC = () => {
                       ? 'This transaction occurred on a past date.'
                       : 'This transaction took place today.'}
                   </p>
+
+                  {/* Already happened toggle */}
+                  <div className="pt-2 border-t border-slate-200/60">
+                    <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={alreadyHappened}
+                        onChange={(e) => setAlreadyHappened(e.target.checked)}
+                        className="w-4 h-4 mt-0.5 rounded border-slate-300 text-amber-600 focus:ring-amber-500 cursor-pointer accent-amber-600"
+                      />
+                      <div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs font-bold text-slate-800">
+                            Already happened
+                          </span>
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-200">
+                            Won't minus wallet balance
+                          </span>
+                        </div>
+                        <p className="text-[10.5px] text-slate-400 mt-0.5 leading-snug">
+                          Records transaction in budget envelopes & history without altering your current wallet balance.
+                        </p>
+                      </div>
+                    </label>
+                  </div>
                 </div>
               )}
             </div>
@@ -349,6 +387,7 @@ export const QuickAddModal: React.FC = () => {
                   setIsQuickAddOpen(false);
                   setStep(1);
                   setHasDate(false);
+                  setAlreadyHappened(false);
                 }}
                 className="px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800"
               >
@@ -396,6 +435,11 @@ export const QuickAddModal: React.FC = () => {
                   >
                     {isFutureDate ? '⏳ Upcoming: ' : isPastDate ? '🕒 Past: ' : '📅 '}
                     {date}
+                  </span>
+                )}
+                {(alreadyHappened || (hasDate && isPastDate)) && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200">
+                    🕒 Historical • Wallet unchanged
                   </span>
                 )}
               </div>

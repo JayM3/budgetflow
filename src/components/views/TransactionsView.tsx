@@ -73,6 +73,7 @@ export const TransactionsView: React.FC = () => {
   const [editCategory, setEditCategory] = useState('');
   const [editWalletId, setEditWalletId] = useState('');
   const [editDatetime, setEditDatetime] = useState('');
+  const [editAlreadyHappened, setEditAlreadyHappened] = useState(false);
   const [editNotes, setEditNotes] = useState('');
 
   const isAdmin = !currentUser || currentUser.role === 'admin';
@@ -110,6 +111,7 @@ export const TransactionsView: React.FC = () => {
     setEditCategory(tx.category);
     setEditWalletId(tx.walletId || wallets[0]?.id || '');
     setEditDatetime(toLocalDatetimeInputString(tx.date));
+    setEditAlreadyHappened(Boolean(tx.alreadyHappened));
     setEditNotes(tx.notes || '');
   };
 
@@ -128,6 +130,7 @@ export const TransactionsView: React.FC = () => {
       category: editType === 'income' ? 'Income' : editCategory,
       walletId: editWalletId || editingTx.walletId,
       date: editDatetime || editingTx.date,
+      alreadyHappened: editAlreadyHappened,
       notes: editNotes.trim() || undefined,
     };
 
@@ -355,6 +358,14 @@ export const TransactionsView: React.FC = () => {
                               Upcoming
                             </span>
                           )}
+                          {tx.alreadyHappened && (
+                            <span
+                              className="text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200"
+                              title="Historical transaction (wallet balance unchanged)"
+                            >
+                              Historical
+                            </span>
+                          )}
                         </div>
                         {timeString ? (
                           <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1 mt-0.5">
@@ -566,6 +577,20 @@ export const TransactionsView: React.FC = () => {
                   placeholder="Additional context or memo..."
                   className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 />
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={editAlreadyHappened}
+                    onChange={(e) => setEditAlreadyHappened(e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500 cursor-pointer accent-amber-600"
+                  />
+                  <span className="text-xs font-bold text-slate-700">
+                    Historical / Already happened (do not adjust wallet balance)
+                  </span>
+                </label>
               </div>
 
               <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">

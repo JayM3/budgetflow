@@ -87,11 +87,19 @@ export const BillsView: React.FC = () => {
   const totalMonthlyBills = recurringBills.reduce((acc, b) => acc + b.amount, 0);
   const netRecurringCashflow = totalMonthlyIncome - totalMonthlyBills;
 
-  // Filter items according to tab
+  // Filter and sort items: unpaid items first, then by dueDate
   const displayedItems = useMemo(() => {
-    if (activeTab === 'bills') return recurringBills;
-    if (activeTab === 'income') return recurringIncome;
-    return bills;
+    let list: Bill[];
+    if (activeTab === 'bills') list = recurringBills;
+    else if (activeTab === 'income') list = recurringIncome;
+    else list = bills;
+
+    return [...list].sort((a, b) => {
+      if (a.isPaid !== b.isPaid) {
+        return a.isPaid ? 1 : -1;
+      }
+      return a.dueDate.localeCompare(b.dueDate);
+    });
   }, [bills, activeTab, recurringBills, recurringIncome]);
 
   const handleOpenAddModal = (defaultType: RecurringItemType = 'bill') => {
@@ -165,20 +173,6 @@ export const BillsView: React.FC = () => {
 
   const handleToggleItemPaid = (item: Bill) => {
     toggleBillPaid(item.id);
-
-    // If toggling to paid/received, optionally record into ledger
-    if (!item.isPaid) {
-      addTransaction({
-        merchant: item.name,
-        amount: item.amount,
-        category: item.type === 'income' ? 'Income' : item.category,
-        type: item.type === 'income' ? 'income' : 'expense',
-        date: new Date().toISOString(),
-        walletId: item.walletId || wallets[0]?.id,
-        notes: `Recorded from recurring ${item.type === 'income' ? 'income' : 'bill'} schedule`,
-        isRecurring: true,
-      });
-    }
   };
 
   const billToDelete = bills.find((b) => b.id === deletingBillId);

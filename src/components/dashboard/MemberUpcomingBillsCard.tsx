@@ -5,25 +5,13 @@ import { formatCurrency, formatDateDisplay } from '../../utils/formatters';
 import { Bill } from '../../types/finance';
 
 export const MemberUpcomingBillsCard: React.FC = () => {
-  const { bills, toggleBillPaid, addTransaction, preferences, wallets, setIsAddRecurringOpen } = useFinance();
+  const { bills, toggleBillPaid, preferences, wallets, setIsAddRecurringOpen } = useFinance();
 
   // bills in context is already scoped to visibleBills (user's allowed wallets)
   const unpaidItems = bills.filter((b) => !b.isPaid);
 
   const handleTogglePaid = (item: Bill) => {
     toggleBillPaid(item.id);
-    if (!item.isPaid) {
-      addTransaction({
-        merchant: item.name,
-        amount: item.amount,
-        category: item.type === 'income' ? 'Income' : item.category,
-        type: item.type === 'income' ? 'income' : 'expense',
-        date: new Date().toISOString(),
-        walletId: item.walletId || wallets[0]?.id,
-        notes: `Recorded from recurring ${item.type === 'income' ? 'income' : 'bill'} schedule`,
-        isRecurring: true,
-      });
-    }
   };
 
   return (
