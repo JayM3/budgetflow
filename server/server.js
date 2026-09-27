@@ -6,6 +6,8 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { db } from './db.js';
 import { hashPattern, verifyPattern, createSession, getSession, updateSessionsForUser, removeSessionsForUser } from './auth.js';
+import { checkForUpdate, runUpdate } from './cli/updater.js';
+import { restartServerGracefully } from './cli/processManager.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1102,6 +1104,93 @@ app.post('/api/restore', authenticate, (req, res) => {
   }
   db.setState(req.body);
   res.json({ success: true });
+});
+
+// 12. Check For Updates (Admin only)
+app.get('/api/system/check-update', authenticate, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+
+  try {
+    const status = await checkForUpdate();
+    res.json({
+      success: true,
+      repo: status.repo,
+      currentVersion: status.currentVersion,
+      latestVersion: status.release?.tagName || status.latestCommit || status.currentVersion,
+      updateAvailable: status.updateAvailable,
+      releaseNotes: status.release?.body || (status.latestCommit ? `Latest commit: ${status.latestCommit}` : undefined),
+      publishedAt: status.release?.publishedAt,
+      commitsBehind: status.commitsBehind,
+      isGit: status.isGit,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 13. Execute Self-Update (Admin only, SSE streaming progress)
+app.post('/api/system/update', authenticate, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+
+  const { force = false, channel = 'main' } = req.body || {};
+
+  // Setup Server-Sent Events headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders?.();
+
+  const sendEvent = (payload) => {
+    try {
+      res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    } catch (_) {}
+  };
+
+  try {
+    addActivityLog('update', 'system', 'Initiated system software update', req.user);
+
+    sendEvent({
+      step: 1,
+      totalSteps: 6,
+      percent: 5,
+      stage: 'init',
+      message: 'Initializing update engine...',
+      status: 'progress',
+    });
+
+    await runUpdate(
+      { force, channel, noRestart: true },
+      (progress) => sendEvent(progress)
+    );
+
+    // Final restart step notification
+    sendEvent({
+      step: 6,
+      totalSteps: 6,
+      percent: 100,
+      stage: 'restarting',
+      message: 'Restarting BudgetFlow server daemon...',
+      status: 'progress',
+    });
+
+    res.end();
+
+    // Trigger graceful server restart: closes port 5050 and launches new detached instance
+    restartServerGracefully(server, 1200);
+
+  } catch (err) {
+    sendEvent({
+      status: 'error',
+      error: err.message || 'Update failed',
+      stage: 'error',
+      percent: 0,
+    });
+    res.end();
+  }
 });
 
 // Fallback all SPA routes to index.html

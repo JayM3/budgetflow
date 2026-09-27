@@ -41,9 +41,9 @@ const AppContent: React.FC = () => {
     isSelfHosted,
   } = useFinance();
 
-  // Guard member views: members can only see dashboard, transactions, wallets, settings
+  // Guard member views: members can only see dashboard, transactions, wallets
   React.useEffect(() => {
-    if (currentUser?.role === 'member' && !['dashboard', 'transactions', 'wallets', 'settings'].includes(activeView)) {
+    if (currentUser?.role === 'member' && !['dashboard', 'transactions', 'wallets'].includes(activeView)) {
       setActiveView('dashboard');
     }
   }, [currentUser, activeView, setActiveView]);

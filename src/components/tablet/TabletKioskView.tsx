@@ -76,7 +76,10 @@ export const TabletKioskView: React.FC = () => {
     setIsTabletMode,
     setIsGuideOpenWithId,
     triggerConfetti,
+    isRefreshing,
+    refreshData,
   } = useFinance();
+
 
   // Clock
   const [time, setTime] = useState<string>('');
@@ -277,29 +280,30 @@ export const TabletKioskView: React.FC = () => {
     const intervalMs = intervalMinutes * 60 * 1000;
 
     const intervalId = setInterval(() => {
-      // If a modal is open, defer reload so user's interaction isn't lost
+      // If a modal is open, defer refresh so user's interaction isn't lost
       if (isKioskBusyRef.current) {
         pendingReloadRef.current = true;
         return;
       }
-      window.location.reload();
+      refreshData();
     }, intervalMs);
 
     return () => clearInterval(intervalId);
-  }, [preferences.tabletAutoRefreshEnabled, preferences.tabletRefreshIntervalMinutes]);
+  }, [preferences.tabletAutoRefreshEnabled, preferences.tabletRefreshIntervalMinutes, refreshData]);
 
-  // When modals close, if a reload was deferred, execute after a 5s grace period
+  // When modals close, if a refresh was deferred, execute after a 5s grace period
   useEffect(() => {
     if (!isKioskActionOpen && !isViewBalancesOpen && pendingReloadRef.current) {
       const graceTimer = setTimeout(() => {
         if (!isKioskBusyRef.current) {
           pendingReloadRef.current = false;
-          window.location.reload();
+          refreshData();
         }
       }, 5000);
       return () => clearTimeout(graceTimer);
     }
-  }, [isKioskActionOpen, isViewBalancesOpen]);
+  }, [isKioskActionOpen, isViewBalancesOpen, refreshData]);
+
 
   const handleOpenLogExpense = () => {
     setIsKioskActionOpen(true);
@@ -464,15 +468,17 @@ export const TabletKioskView: React.FC = () => {
             className="text-white hover:text-teal-300 w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center bg-white/5 border border-white/10 hover:bg-white/10 transition-all active:scale-95"
           />
 
-          {/* Refresh Page Button (Icon-only between ? and zoom in button) */}
+          {/* Fetch Latest Numbers Button (Icon-only between ? and zoom in button) */}
           <button
-            onClick={() => window.location.reload()}
-            className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center border border-white/10 bg-white/5 text-slate-300 hover:text-white hover:bg-white/10 transition-all active:scale-95"
-            title="Refresh Page"
-            aria-label="Refresh Page"
+            onClick={refreshData}
+            disabled={isRefreshing}
+            className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center border border-white/10 bg-white/5 text-slate-300 hover:text-white hover:bg-white/10 transition-all active:scale-95 disabled:opacity-75"
+            title="Fetch Latest Numbers"
+            aria-label="Fetch Latest Numbers"
           >
-            <RefreshCw className="w-5 h-5" />
+            <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin text-teal-400' : ''}`} />
           </button>
+
 
           {/* Scale Switcher: Standard vs Jumbo Room View (Icon-only, bigger, touch-friendly) */}
           <button

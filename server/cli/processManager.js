@@ -418,3 +418,58 @@ export function openUrl(url) {
     }
   } catch (_) {}
 }
+
+/**
+ * Gracefully restart the server from within the running server process.
+ * Closes the existing HTTP server to free port 5050, spawns a new detached server process,
+ * and terminates the current process cleanly.
+ */
+export function restartServerGracefully(httpServer, delayMs = 1200) {
+  setTimeout(() => {
+    console.log(c.cyan('Initiating graceful server restart...'));
+
+    const spawnNewInstance = () => {
+      try {
+        if (!fs.existsSync(DATA_DIR)) {
+          fs.mkdirSync(DATA_DIR, { recursive: true });
+        }
+        const outLog = fs.openSync(LOG_FILE, 'a');
+        const errLog = fs.openSync(LOG_FILE, 'a');
+
+        const child = spawn(process.execPath, [SERVER_SCRIPT], {
+          detached: true,
+          stdio: ['ignore', outLog, errLog],
+          windowsHide: true,
+          cwd: ROOT_DIR,
+          env: { ...process.env },
+        });
+
+        const pid = child.pid;
+        fs.writeFileSync(PID_FILE, String(pid), 'utf-8');
+        child.unref();
+
+        try { fs.closeSync(outLog); } catch (_) {}
+        try { fs.closeSync(errLog); } catch (_) {}
+
+        console.log(c.success(`New server process spawned (PID: ${pid}). Exiting current process.`));
+      } catch (err) {
+        console.error(c.error(`Failed to spawn new server instance: ${err.message}`));
+      }
+      process.exit(0);
+    };
+
+    if (httpServer && typeof httpServer.close === 'function') {
+      httpServer.close((err) => {
+        if (err) {
+          console.error(c.warning(`Error closing HTTP server socket: ${err.message}`));
+        }
+        spawnNewInstance();
+      });
+      // Safety fallback in case lingering sockets don't trigger close callback within 3s
+      setTimeout(spawnNewInstance, 3000);
+    } else {
+      spawnNewInstance();
+    }
+  }, delayMs);
+}
+

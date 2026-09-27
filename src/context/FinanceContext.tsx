@@ -205,7 +205,12 @@ interface FinanceContextType {
     subtitle?: string;
   }) => void;
   closeSmartAllocation: () => void;
+
+  // In-Memory Data Refresh (No Hard Reload)
+  isRefreshing: boolean;
+  refreshData: () => Promise<void>;
 }
+
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
 
@@ -391,6 +396,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Global Modals State
   const [isCalendarModalOpen, setIsCalendarModalOpen] = useState<boolean>(false);
   const [isActivityLogOpen, setIsActivityLogOpen] = useState<boolean>(false);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
   // Activity Logs
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>(() => {
@@ -620,6 +626,80 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       console.error('Failed to save isTabletMode to localStorage', e);
     }
   }, [isTabletMode]);
+
+  // In-Memory Data Refresh: queries server / local storage without hard page reloads
+  const refreshData = async () => {
+    setIsRefreshing(true);
+    try {
+      if (isSelfHosted) {
+        const [remoteUsers, remoteData] = await Promise.all([
+          api.getFamilyUsers().catch(() => null),
+          api.getData().catch(() => null),
+        ]);
+
+        if (remoteUsers && remoteUsers.length > 0) {
+          setFamilyUsers(remoteUsers);
+          const savedUserStr = localStorage.getItem(LS_PREFIX + 'currentUser');
+          if (savedUserStr) {
+            try {
+              const savedUser = JSON.parse(savedUserStr);
+              const matched = remoteUsers.find((u: any) => u.id === savedUser.id);
+              if (matched) {
+                setCurrentUser(matched);
+                localStorage.setItem(LS_PREFIX + 'currentUser', JSON.stringify(matched));
+                setPreferences((prev) => ({ ...prev, userName: matched.name }));
+              }
+            } catch (_) {}
+          }
+        }
+
+        if (remoteData) {
+          if (remoteData.householdSettings) {
+            setHouseholdSettings(remoteData.householdSettings);
+          }
+          if (remoteData.currentUser) {
+            setCurrentUser((prev) => {
+              const updated = { ...(prev || {}), ...remoteData.currentUser };
+              localStorage.setItem(LS_PREFIX + 'currentUser', JSON.stringify(updated));
+              return updated;
+            });
+          }
+          if (remoteData.allUsers && remoteData.allUsers.length > 0) {
+            setFamilyUsers(remoteData.allUsers);
+          }
+          if (remoteData.categories && remoteData.categories.length > 0) setCategories(remoteData.categories);
+          if (remoteData.wallets && remoteData.wallets.length > 0) setAllWallets(remoteData.wallets);
+          if (remoteData.transactions) setTransactions(remoteData.transactions);
+          if (remoteData.bills) setBills(remoteData.bills);
+          if (remoteData.goals) setGoals(remoteData.goals);
+          if (remoteData.activityLogs) setActivityLogs(remoteData.activityLogs);
+        }
+      } else {
+        // Standalone / Offline mode: re-read localStorage
+        try {
+          const cat = localStorage.getItem(LS_PREFIX + 'categories');
+          if (cat) setCategories(JSON.parse(cat));
+          const tx = localStorage.getItem(LS_PREFIX + 'transactions');
+          if (tx) setTransactions(JSON.parse(tx));
+          const bl = localStorage.getItem(LS_PREFIX + 'bills');
+          if (bl) setBills(JSON.parse(bl));
+          const gl = localStorage.getItem(LS_PREFIX + 'goals');
+          if (gl) setGoals(JSON.parse(gl));
+          const wl = localStorage.getItem(LS_PREFIX + 'wallets');
+          if (wl) setAllWallets(JSON.parse(wl));
+          const usr = localStorage.getItem(LS_PREFIX + 'familyUsers');
+          if (usr) setFamilyUsers(JSON.parse(usr));
+        } catch (_) {}
+      }
+    } catch (err) {
+      console.error('Failed to refresh data:', err);
+    } finally {
+      // Retain a smooth tactile spinning duration
+      setTimeout(() => {
+        setIsRefreshing(false);
+      }, 450);
+    }
+  };
 
   // Wallet Permissions Filter:
   // If currentUser is a member with allowedWalletIds, filter wallets, transactions, and bills
@@ -1356,7 +1436,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setCurrentUser(updatedUser);
       localStorage.setItem(LS_PREFIX + 'currentUser', JSON.stringify(updatedUser));
       setPreferences((prev) => ({ ...prev, userName: updatedUser.name }));
-      if (updatedUser.role === 'member' && !['dashboard', 'transactions', 'wallets', 'settings'].includes(activeView)) {
+      if (updatedUser.role === 'member' && !['dashboard', 'transactions', 'wallets'].includes(activeView)) {
         setActiveView('dashboard');
       }
     }
@@ -1403,7 +1483,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     localStorage.setItem(LS_PREFIX + 'currentUser', JSON.stringify(latestUser));
     setPreferences((prev) => ({ ...prev, userName: latestUser.name }));
     setIsUserSelectModalOpen(false);
-    if (latestUser.role === 'member' && !['dashboard', 'transactions', 'wallets', 'settings'].includes(activeView)) {
+    if (latestUser.role === 'member' && !['dashboard', 'transactions', 'wallets'].includes(activeView)) {
       setActiveView('dashboard');
     }
     if (isSelfHosted) {
@@ -1596,6 +1676,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         smartAllocationConfig,
         openSmartAllocation,
         closeSmartAllocation,
+        isRefreshing,
+        refreshData,
       }}
     >
       {children}

@@ -5,4 +5,13 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   base: './', // Ensures relative paths for static hosting like GitHub Pages
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5050',
+        changeOrigin: true,
+      },
+    },
+  },
 });
+

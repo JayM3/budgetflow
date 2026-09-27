@@ -127,18 +127,21 @@ export const Sidebar: React.FC = () => {
           <span>Activity Log</span>
         </button>
 
-        <button
-          onClick={() => setActiveView('settings')}
-          className={`w-full flex items-center gap-3.5 px-4 py-2.5 rounded-2xl font-medium text-sm transition-all duration-200 ${
-            activeView === 'settings'
-              ? 'bg-gradient-to-r from-teal-600 via-cyan-600 to-sky-600 text-white shadow-lg shadow-cyan-600/25 font-semibold'
-              : 'text-slate-600 hover:text-cyan-900 hover:bg-cyan-50/70'
-          }`}
-        >
-          <Settings className={`w-5 h-5 ${activeView === 'settings' ? 'text-white' : 'text-slate-500'}`} />
-          <span>Settings</span>
-        </button>
+        {currentUser?.role === 'admin' && (
+          <button
+            onClick={() => setActiveView('settings')}
+            className={`w-full flex items-center gap-3.5 px-4 py-2.5 rounded-2xl font-medium text-sm transition-all duration-200 ${
+              activeView === 'settings'
+                ? 'bg-gradient-to-r from-teal-600 via-cyan-600 to-sky-600 text-white shadow-lg shadow-cyan-600/25 font-semibold'
+                : 'text-slate-600 hover:text-cyan-900 hover:bg-cyan-50/70'
+            }`}
+          >
+            <Settings className={`w-5 h-5 ${activeView === 'settings' ? 'text-white' : 'text-slate-500'}`} />
+            <span>Settings</span>
+          </button>
+        )}
       </div>
+
     </aside>
   );
 };

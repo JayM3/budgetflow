@@ -249,9 +249,9 @@ function syncFilesPreservingData(sourceDir, destDir) {
 }
 
 /**
- * Download archive file (handles HTTP redirects)
+ * Download archive file (handles HTTP redirects and streams chunks with progress)
  */
-async function downloadArchive(url, targetPath) {
+async function downloadArchive(url, targetPath, onProgress) {
   const res = await fetch(url, {
     headers: {
       'User-Agent': `BudgetFlow-CLI/${getCurrentVersion()}`,
@@ -264,9 +264,48 @@ async function downloadArchive(url, targetPath) {
     throw new Error(`Failed to download archive: HTTP ${res.status} ${res.statusText}`);
   }
 
-  const arrayBuffer = await res.arrayBuffer();
-  fs.writeFileSync(targetPath, Buffer.from(arrayBuffer));
+  const contentLength = Number(res.headers.get('content-length')) || 0;
+
+  if (res.body && typeof res.body.getReader === 'function') {
+    const reader = res.body.getReader();
+    const fileStream = fs.createWriteStream(targetPath);
+    let receivedBytes = 0;
+
+    await new Promise(async (resolve, reject) => {
+      fileStream.on('error', reject);
+      fileStream.on('finish', resolve);
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          fileStream.write(value);
+          receivedBytes += value.length;
+          if (contentLength > 0 && typeof onProgress === 'function') {
+            const pct = Math.min(100, Math.round((receivedBytes / contentLength) * 100));
+            // Map 0-100% download into 25% - 48% overall
+            const overall = Math.round(25 + (pct * 0.23));
+            onProgress({
+              step: 2,
+              totalSteps: 6,
+              percent: overall,
+              stage: 'download',
+              message: `Downloading update archive (${(receivedBytes / 1024 / 1024).toFixed(1)} MB / ${(contentLength / 1024 / 1024).toFixed(1)} MB)...`,
+            });
+          }
+        }
+        fileStream.end();
+      } catch (err) {
+        fileStream.destroy(err);
+        reject(err);
+      }
+    });
+  } else {
+    const arrayBuffer = await res.arrayBuffer();
+    fs.writeFileSync(targetPath, Buffer.from(arrayBuffer));
+  }
 }
+
 
 /**
  * Extract an archive (.zip or .tar.gz) into a destination directory
@@ -299,7 +338,7 @@ function extractArchive(archivePath, destDir) {
 /**
  * Main update runner
  */
-export async function runUpdate(options = {}) {
+export async function runUpdate(options = {}, onProgress = () => {}) {
   const {
     check = false,
     force = false,
@@ -308,6 +347,14 @@ export async function runUpdate(options = {}) {
     noRestart = false,
     noBackup = false,
   } = options;
+
+  const reportProgress = (percent, stage, message, step = 1, totalSteps = 6) => {
+    if (typeof onProgress === 'function') {
+      try {
+        onProgress({ step, totalSteps, percent, stage, message, status: 'progress' });
+      } catch (_) {}
+    }
+  };
 
   const currentVer = getCurrentVersion();
   const repoInfo = getRepoInfo();
@@ -349,14 +396,19 @@ export async function runUpdate(options = {}) {
   }
 
   // --- 2. PRE-UPDATE SAFETY BACKUP ---
+  reportProgress(10, 'backup', 'Creating pre-update safety backup of household database...', 1, 6);
   if (!noBackup) {
     try {
       console.log(c.dim('Creating pre-update safety backup of household database...'));
       const backup = createBackup('pre-update');
       console.log(c.success(`Safety backup created: ${c.bold(backup.filename)}`));
+      reportProgress(20, 'backup', `Safety snapshot preserved (${backup.filename}).`, 1, 6);
     } catch (err) {
       console.log(c.warning(`Pre-update backup skipped or encountered issue: ${err.message}`));
+      reportProgress(20, 'backup', 'Pre-update backup step finished.', 1, 6);
     }
+  } else {
+    reportProgress(20, 'backup', 'Safety backup step skipped.', 1, 6);
   }
 
   // --- 3. CHECK RUNNING SERVER STATE ---
@@ -367,6 +419,7 @@ export async function runUpdate(options = {}) {
   }
 
   // --- 4. DETERMINE UPDATE SOURCE: RELEASE vs REPOSITORY ---
+  reportProgress(25, 'download', 'Checking update sources and preparing download...', 2, 6);
   console.log(c.dim('Checking update sources...'));
   const checkStatus = await checkForUpdate({ repoOnly, channel });
   let updateStrategy = null; // 'release' | 'git' | 'archive'
@@ -402,16 +455,19 @@ export async function runUpdate(options = {}) {
   // --- 5. EXECUTE UPDATE STRATEGY ---
   console.log('');
   if (updateStrategy === 'release') {
-    console.log(c.cyan(`📥 Downloading release ${checkStatus.release.tagName}...`));
+    const tagName = checkStatus.release?.tagName || 'latest';
+    console.log(c.cyan(`📥 Downloading release ${tagName}...`));
+    reportProgress(30, 'download', `Downloading release package ${tagName}...`, 2, 6);
     const tmpDir = path.join(os.tmpdir(), `budgetflow-release-${Date.now()}`);
     const archivePath = path.join(tmpDir, 'release.zip');
     fs.mkdirSync(tmpDir, { recursive: true });
 
     try {
-      const downloadUrl = checkStatus.release.zipballUrl ||
-        `https://github.com/${repoInfo.fullName}/archive/refs/tags/${checkStatus.release.tagName}.zip`;
+      const downloadUrl = checkStatus.release?.zipballUrl ||
+        `https://github.com/${repoInfo.fullName}/archive/refs/tags/${tagName}.zip`;
 
-      await downloadArchive(downloadUrl, archivePath);
+      await downloadArchive(downloadUrl, archivePath, onProgress);
+      reportProgress(48, 'sync', 'Extracting release package...', 3, 6);
       console.log(c.dim('Extracting release archive...'));
       const extractDir = path.join(tmpDir, 'extracted');
       extractArchive(archivePath, extractDir);
@@ -422,16 +478,19 @@ export async function runUpdate(options = {}) {
         ? path.join(extractDir, subdirs[0])
         : extractDir;
 
+      reportProgress(55, 'sync', 'Synchronizing system files (preserving database & config)...', 3, 6);
       console.log(c.dim('Synchronizing project files (preserving database & configs)...'));
       syncFilesPreservingData(rootPayload, ROOT_DIR);
       console.log(c.success(`Release files applied.`));
+      reportProgress(60, 'sync', 'Files synchronized successfully.', 3, 6);
     } finally {
       try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_) {}
     }
 
   } else if (updateStrategy === 'git') {
-    if (checkStatus.commitsBehind > 0) {
+    if (checkStatus.commitsBehind > 0 || force) {
       console.log(c.cyan(`🔄 Pulling latest commits from origin/${channel}...`));
+      reportProgress(35, 'download', `Pulling latest commits from origin/${channel}...`, 2, 6);
 
       // Check if git working directory is dirty
       let stashed = false;
@@ -458,6 +517,7 @@ export async function runUpdate(options = {}) {
           }
         }
         console.log(c.success('Git pull completed successfully.'));
+        reportProgress(60, 'sync', 'Git update pulled successfully.', 3, 6);
       } catch (err) {
         console.error(c.error(`Git update encountered an error: ${err.message}`));
         throw err;
@@ -465,18 +525,21 @@ export async function runUpdate(options = {}) {
     } else {
       console.log(c.cyan(`Repository is already at latest commit (origin/${channel}).`));
       console.log(c.dim('Proceeding with full dependency refresh and frontend build (--force)...'));
+      reportProgress(60, 'sync', 'Local files verified.', 3, 6);
     }
 
   } else if (updateStrategy === 'archive') {
     console.log(c.cyan(`📥 Downloading latest repository archive (${channel})...`));
+    reportProgress(30, 'download', `Downloading latest repository archive (${channel})...`, 2, 6);
     const tmpDir = path.join(os.tmpdir(), `budgetflow-repo-${Date.now()}`);
     const archivePath = path.join(tmpDir, 'repo.zip');
     fs.mkdirSync(tmpDir, { recursive: true });
 
     try {
       const archiveUrl = `https://github.com/${repoInfo.fullName}/archive/refs/heads/${channel}.zip`;
-      await downloadArchive(archiveUrl, archivePath);
+      await downloadArchive(archiveUrl, archivePath, onProgress);
 
+      reportProgress(48, 'sync', 'Extracting repository archive...', 3, 6);
       console.log(c.dim('Extracting repository archive...'));
       const extractDir = path.join(tmpDir, 'extracted');
       extractArchive(archivePath, extractDir);
@@ -486,15 +549,18 @@ export async function runUpdate(options = {}) {
         ? path.join(extractDir, subdirs[0])
         : extractDir;
 
+      reportProgress(55, 'sync', 'Synchronizing project files (preserving database & config)...', 3, 6);
       console.log(c.dim('Synchronizing project files (preserving database & configs)...'));
       syncFilesPreservingData(rootPayload, ROOT_DIR);
       console.log(c.success('Repository archive applied.'));
+      reportProgress(60, 'sync', 'Files synchronized successfully.', 3, 6);
     } finally {
       try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_) {}
     }
   }
 
   // --- 6. DEPENDENCY INSTALLATION ---
+  reportProgress(65, 'dependencies', 'Refreshing application dependencies (npm install)...', 4, 6);
   console.log(`\n${c.cyan('📦 Refreshing frontend dependencies...')}`);
   try {
     execSync('npm install --prefer-offline --no-audit', { cwd: ROOT_DIR, stdio: 'inherit' });
@@ -503,6 +569,7 @@ export async function runUpdate(options = {}) {
     console.error(c.error(`Root npm install warning: ${err.message}`));
   }
 
+  reportProgress(75, 'dependencies', 'Refreshing server dependencies (npm install)...', 4, 6);
   console.log(`\n${c.cyan('📦 Refreshing server dependencies...')}`);
   try {
     execSync('npm install --prefer-offline --no-audit', { cwd: SERVER_DIR, stdio: 'inherit' });
@@ -512,10 +579,12 @@ export async function runUpdate(options = {}) {
   }
 
   // --- 7. RECOMPILE FRONTEND BUNDLE ---
+  reportProgress(82, 'build', 'Compiling production frontend bundle (npm run build)...', 5, 6);
   console.log(`\n${c.cyan('🔨 Rebuilding frontend production bundle (/dist)...')}`);
   try {
     execSync('npm run build', { cwd: ROOT_DIR, stdio: 'inherit' });
     console.log(c.success('Frontend bundle compiled successfully.'));
+    reportProgress(95, 'build', 'Frontend compiled successfully.', 5, 6);
   } catch (err) {
     console.error(c.error(`Frontend build failed: ${err.message}`));
     throw err;
@@ -526,6 +595,7 @@ export async function runUpdate(options = {}) {
   const lanIp = getLocalIp();
 
   if (wasRunning && !noRestart) {
+    reportProgress(100, 'restarting', 'Restarting BudgetFlow server daemon...', 6, 6);
     console.log(`\n${c.cyan('🔄 Restarting BudgetFlow server daemon...')}`);
     await restartServer();
 
@@ -550,6 +620,7 @@ export async function runUpdate(options = {}) {
       ], colors.yellow);
     }
   } else {
+    reportProgress(100, 'complete', 'Update completed successfully.', 6, 6);
     printBox('🎉 BUDGETFLOW UPDATED SUCCESSFULLY', [
       `${c.bold('Version:')}    v${updatedVer}`,
       `${c.bold('Source:')}     ${updateStrategy === 'release' ? 'GitHub Release' : 'GitHub Repository (' + channel + ')'}`,
@@ -560,3 +631,4 @@ export async function runUpdate(options = {}) {
     ], colors.cyan);
   }
 }
+

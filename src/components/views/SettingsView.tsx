@@ -11,10 +11,13 @@ import {
   DollarSign,
   Github,
   Clock,
+  ArrowUpCircle,
+  ShieldAlert,
 } from 'lucide-react';
 import logoImg from '../../assets/logo.png';
 import { useFinance } from '../../context/FinanceContext';
-
+import { api, SystemUpdateStatus } from '../../services/api';
+import { UpdateModal } from '../features/UpdateModal';
 import { isGitHubPages } from '../../utils/env';
 
 const CURRENCIES = [
@@ -34,9 +37,38 @@ export const SettingsView: React.FC = () => {
     triggerConfetti,
     setActiveView,
     setIsTabletMode,
+    currentUser,
+    isSelfHosted,
   } = useFinance();
 
   const [importStatus, setImportStatus] = useState<string | null>(null);
+
+  // Software & System Updates State
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState<boolean>(false);
+  const [updateInfo, setUpdateInfo] = useState<SystemUpdateStatus | null>(null);
+  const [lastCheckedTime, setLastCheckedTime] = useState<string | null>(null);
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState<boolean>(false);
+
+  const handleCheckForUpdates = async () => {
+    setIsCheckingUpdate(true);
+    try {
+      const res = await api.checkForUpdate();
+      setUpdateInfo(res);
+      setLastCheckedTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      if (res.updateAvailable) {
+        setIsUpdateModalOpen(true);
+      }
+    } catch (_) {
+      setUpdateInfo({
+        success: false,
+        updateAvailable: false,
+        currentVersion: '1.0.0.1',
+        error: 'Could not contact server to check updates.',
+      });
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
 
   const handleJsonUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -59,8 +91,30 @@ export const SettingsView: React.FC = () => {
     reader.readAsText(file);
   };
 
+  // Admin-Only Route Guard
+  if (currentUser && currentUser.role !== 'admin') {
+    return (
+      <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-card text-center max-w-md mx-auto my-12 space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 mx-auto flex items-center justify-center">
+          <ShieldAlert className="w-6 h-6" />
+        </div>
+        <h3 className="text-lg font-bold text-slate-800">Admin Access Required</h3>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          Application settings and system configurations are restricted exclusively to household administrators.
+        </p>
+        <button
+          onClick={() => setActiveView('dashboard')}
+          className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-semibold hover:bg-slate-800 transition-all"
+        >
+          Return to Dashboard
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 max-w-4xl">
+
       {/* 1. Profile & Preferences */}
       <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-card space-y-5">
         <div className="flex items-center gap-2.5 pb-4 border-b border-slate-100">
@@ -187,7 +241,106 @@ export const SettingsView: React.FC = () => {
         </div>
       </div>
 
-      {/* 4. Family Hub & Tablet Kiosk */}
+      {/* 4. Software & System Updates (Admin Only) */}
+      <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-card space-y-5">
+        <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-cyan-50 text-cyan-700">
+              <ArrowUpCircle className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-800">Software & System Updates</h3>
+              <p className="text-xs text-slate-400">
+                Check for official releases, inspect changelog, and self-update the server daemon.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 font-mono border border-slate-200">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>v{updateInfo?.currentVersion || '1.0.0.1'}</span>
+            </span>
+          </div>
+        </div>
+
+        {/* Update Status Banner / Card */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-slate-50 to-cyan-50/30 border border-slate-200/80 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="font-bold text-sm text-slate-800">Update Status</h4>
+                {updateInfo?.updateAvailable ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-amber-100 text-amber-800 border border-amber-200">
+                    Update Available
+                  </span>
+                ) : updateInfo ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    Up to Date
+                  </span>
+                ) : null}
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                {updateInfo?.updateAvailable
+                  ? `A newer version (${updateInfo.latestVersion}) is ready to download.`
+                  : updateInfo
+                  ? `You are running the latest official version (v${updateInfo.currentVersion}).`
+                  : 'Check GitHub releases for the latest enhancements, features, and fixes.'}
+              </p>
+              {lastCheckedTime && (
+                <span className="text-[11px] text-slate-400 block mt-1">
+                  Last checked today at {lastCheckedTime}
+                </span>
+              )}
+            </div>
+
+            {/* Check Button */}
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleCheckForUpdates}
+                disabled={isCheckingUpdate}
+                className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all flex items-center gap-2 active:scale-95 disabled:opacity-75 shadow-sm"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isCheckingUpdate ? 'animate-spin text-teal-400' : ''}`} />
+                <span>{isCheckingUpdate ? 'Checking GitHub...' : 'Check for Updates'}</span>
+              </button>
+
+              {updateInfo?.updateAvailable && (
+                <button
+                  type="button"
+                  onClick={() => setIsUpdateModalOpen(true)}
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-teal-600 via-cyan-600 to-sky-600 hover:from-teal-700 hover:via-cyan-700 hover:to-sky-700 text-white text-xs font-bold shadow-md shadow-cyan-600/25 transition-all flex items-center gap-1.5 active:scale-95"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Update to {updateInfo.latestVersion}</span>
+                </button>
+              )}
+
+              {updateInfo && !updateInfo.updateAvailable && (
+                <button
+                  type="button"
+                  onClick={() => setIsUpdateModalOpen(true)}
+                  className="px-3 py-2 rounded-xl border border-slate-200 hover:border-cyan-300 hover:bg-cyan-50/50 text-slate-600 text-xs font-semibold transition-all active:scale-95"
+                  title="Reinstall dependencies and rebuild production bundle"
+                >
+                  Force Reinstall / Rebuild
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Informational tip */}
+        <div className="text-[11px] text-slate-400 leading-relaxed">
+          Self-updates automatically create a timestamped database snapshot in{' '}
+          <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-600 font-mono">server/data/backups/</code>,
+          synchronizing all files, refreshing dependencies, rebuilding the frontend, and safely restarting the background daemon.
+        </div>
+      </div>
+
+      {/* 5. Family Hub & Tablet Kiosk */}
+
       <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-card space-y-5">
         <div className="flex items-center justify-between pb-4 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
@@ -407,6 +560,15 @@ export const SettingsView: React.FC = () => {
           </a>
         </div>
       </div>
+
+      {/* Software Self-Update Modal */}
+      <UpdateModal
+        isOpen={isUpdateModalOpen}
+        onClose={() => setIsUpdateModalOpen(false)}
+        updateInfo={updateInfo}
+        onCheckAgain={handleCheckForUpdates}
+      />
     </div>
   );
 };
+

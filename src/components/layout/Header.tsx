@@ -14,6 +14,7 @@ import {
   CalendarDays,
   History,
   RefreshCw,
+  Settings,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 
@@ -38,6 +39,8 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
     setIsGuideOpenWithId,
     setIsCalendarModalOpen,
     setIsActivityLogOpen,
+    isRefreshing,
+    refreshData,
   } = useFinance();
 
   const [showNotifications, setShowNotifications] = useState(false);
@@ -107,15 +110,17 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
           <span className="hidden lg:inline">Calendar Sync</span>
         </button>
 
-        {/* Refresh Page Button (Icon-only) */}
+        {/* Fetch Latest Numbers Button (In-memory, no hard reload) */}
         <button
-          onClick={() => window.location.reload()}
-          className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white/90 backdrop-blur border border-slate-200/80 flex items-center justify-center text-slate-600 hover:text-cyan-600 hover:border-cyan-300 hover:shadow-sm transition-all active:scale-95"
-          title="Refresh Page"
-          aria-label="Refresh Page"
+          onClick={refreshData}
+          disabled={isRefreshing}
+          className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white/90 backdrop-blur border border-slate-200/80 flex items-center justify-center text-slate-600 hover:text-cyan-600 hover:border-cyan-300 hover:shadow-sm transition-all active:scale-95 disabled:opacity-75"
+          title="Fetch Latest Numbers"
+          aria-label="Fetch Latest Numbers"
         >
-          <RefreshCw className="w-4 h-4" />
+          <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-cyan-600' : ''}`} />
         </button>
+
 
         {/* Notification Bell */}
         <div className="relative">
@@ -243,15 +248,19 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
                   <History className="w-3.5 h-3.5 text-teal-600" />
                 </button>
 
-                <button
-                  onClick={() => {
-                    setShowProfileMenu(false);
-                    setActiveView('settings');
-                  }}
-                  className="w-full text-left px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 rounded-lg"
-                >
-                  Settings & Data Backup
-                </button>
+                {currentUser?.role === 'admin' && (
+                  <button
+                    onClick={() => {
+                      setShowProfileMenu(false);
+                      setActiveView('settings');
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 rounded-lg flex items-center justify-between"
+                  >
+                    <span>Settings & Data Backup</span>
+                    <Settings className="w-3.5 h-3.5 text-slate-400" />
+                  </button>
+                )}
+
 
                 <div className="pt-1 mt-1 border-t border-slate-100 space-y-0.5">
                   <button

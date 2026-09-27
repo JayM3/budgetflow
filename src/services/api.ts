@@ -473,4 +473,104 @@ export const api = {
       return false;
     }
   },
+
+  // System Self-Update
+  async checkForUpdate(): Promise<SystemUpdateStatus> {
+    const token = this.getToken();
+    try {
+      const res = await fetch(`${API_BASE}/api/system/check-update`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
+        },
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+      const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+      return { success: false, updateAvailable: false, currentVersion: '1.0.0.1', error: err.error };
+    } catch (e: any) {
+      return { success: false, updateAvailable: false, currentVersion: '1.0.0.1', error: e.message };
+    }
+  },
+
+  async startUpdate(
+    options: { force?: boolean; channel?: string } = {},
+    onProgress: (data: UpdateProgressEvent) => void
+  ): Promise<{ success: boolean; error?: string }> {
+    const token = this.getToken();
+    try {
+      const res = await fetch(`${API_BASE}/api/system/update`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(options),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        return { success: false, error: err.error || 'Update request failed' };
+      }
+
+      const reader = res.body?.getReader();
+      if (!reader) {
+        return { success: false, error: 'Streaming response not supported by browser' };
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('data:')) {
+            try {
+              const data = JSON.parse(trimmed.slice(5).trim());
+              onProgress(data);
+              if (data.status === 'error') {
+                return { success: false, error: data.error };
+              }
+            } catch (_) {}
+          }
+        }
+      }
+
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  },
 };
+
+export interface SystemUpdateStatus {
+  success: boolean;
+  repo?: string;
+  currentVersion: string;
+  latestVersion?: string;
+  updateAvailable: boolean;
+  releaseNotes?: string;
+  publishedAt?: string;
+  commitsBehind?: number;
+  isGit?: boolean;
+  error?: string;
+}
+
+export interface UpdateProgressEvent {
+  step: number;
+  totalSteps: number;
+  percent: number;
+  stage: string;
+  message: string;
+  status?: 'progress' | 'complete' | 'error';
+  error?: string;
+}
+
