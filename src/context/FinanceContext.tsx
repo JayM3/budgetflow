@@ -227,7 +227,13 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [isWhatIfOpen, setIsWhatIfOpen] = useState(false);
   const [isCsvImportOpen, setIsCsvImportOpen] = useState(false);
   const [isAddRecurringOpen, setIsAddRecurringOpen] = useState(false);
-  const [isTabletMode, setIsTabletMode] = useState(false);
+  const [isTabletMode, setIsTabletMode] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(LS_PREFIX + 'isTabletMode') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [activeGuideId, setActiveGuideId] = useState<GuideId | null>(null);
 
   // Smart Allocation Modal State
@@ -312,7 +318,15 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [preferences, setPreferences] = useState<UserPreferences>(() => {
     try {
       const saved = localStorage.getItem(LS_PREFIX + 'preferences');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          ...initialPreferences,
+          ...parsed,
+          tabletAutoRefreshEnabled: parsed.tabletAutoRefreshEnabled ?? true,
+          tabletRefreshIntervalMinutes: parsed.tabletRefreshIntervalMinutes ?? 5,
+        };
+      }
       return isGHP ? demoPreferences : initialPreferences;
     } catch {
       return initialPreferences;
@@ -598,6 +612,14 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       console.error('Failed to save activeView to localStorage', e);
     }
   }, [activeView]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LS_PREFIX + 'isTabletMode', String(isTabletMode));
+    } catch (e) {
+      console.error('Failed to save isTabletMode to localStorage', e);
+    }
+  }, [isTabletMode]);
 
   // Wallet Permissions Filter:
   // If currentUser is a member with allowedWalletIds, filter wallets, transactions, and bills

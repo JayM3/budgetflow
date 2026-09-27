@@ -13,6 +13,7 @@ import {
   Globe,
   CalendarDays,
   History,
+  RefreshCw,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 
@@ -104,6 +105,16 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
         >
           <CalendarDays className="w-3.5 h-3.5 text-cyan-600" />
           <span className="hidden lg:inline">Calendar Sync</span>
+        </button>
+
+        {/* Refresh Page Button (Icon-only) */}
+        <button
+          onClick={() => window.location.reload()}
+          className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white/90 backdrop-blur border border-slate-200/80 flex items-center justify-center text-slate-600 hover:text-cyan-600 hover:border-cyan-300 hover:shadow-sm transition-all active:scale-95"
+          title="Refresh Page"
+          aria-label="Refresh Page"
+        >
+          <RefreshCw className="w-4 h-4" />
         </button>
 
         {/* Notification Bell */}

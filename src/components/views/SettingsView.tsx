@@ -10,6 +10,7 @@ import {
   User,
   DollarSign,
   Github,
+  Clock,
 } from 'lucide-react';
 import logoImg from '../../assets/logo.png';
 import { useFinance } from '../../context/FinanceContext';
@@ -230,6 +231,100 @@ export const SettingsView: React.FC = () => {
               Launch Tablet Mode 📱
             </button>
           </div>
+        </div>
+
+        {/* Tablet Auto-Refresh Configuration */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-slate-50 to-teal-50/30 border border-slate-200/80 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-teal-100/70 text-teal-700 mt-0.5">
+                <RefreshCw className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="font-bold text-sm text-slate-800 flex items-center gap-2">
+                  <span>Tablet Kiosk Auto-Refresh</span>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
+                      preferences.tabletAutoRefreshEnabled !== false
+                        ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                        : 'bg-slate-200 text-slate-600'
+                    }`}
+                  >
+                    {preferences.tabletAutoRefreshEnabled !== false ? 'Active' : 'Disabled'}
+                  </span>
+                </h4>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Automatically reloads the wall tablet display at regular intervals to sync changes and keep browser memory fresh.
+                </p>
+              </div>
+            </div>
+
+            {/* Toggle Button */}
+            <button
+              type="button"
+              onClick={() => {
+                const nextVal = !(preferences.tabletAutoRefreshEnabled ?? true);
+                updatePreferences({ tabletAutoRefreshEnabled: nextVal });
+              }}
+              className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 ${
+                preferences.tabletAutoRefreshEnabled !== false ? 'bg-teal-600' : 'bg-slate-300'
+              }`}
+              role="switch"
+              aria-checked={preferences.tabletAutoRefreshEnabled !== false}
+              title={
+                preferences.tabletAutoRefreshEnabled !== false
+                  ? 'Disable Tablet Auto-Refresh'
+                  : 'Enable Tablet Auto-Refresh'
+              }
+            >
+              <span
+                className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                  preferences.tabletAutoRefreshEnabled !== false ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Interval Configuration (visible when enabled) */}
+          {preferences.tabletAutoRefreshEnabled !== false && (
+            <div className="pt-3 border-t border-slate-200/60 space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-teal-600" />
+                  <span>Refresh Interval</span>
+                </label>
+                <span className="text-xs font-semibold text-teal-700">
+                  Every {preferences.tabletRefreshIntervalMinutes ?? 5} minute
+                  {(preferences.tabletRefreshIntervalMinutes ?? 5) === 1 ? '' : 's'}
+                </span>
+              </div>
+
+              {/* Preset Interval Buttons */}
+              <div className="flex flex-wrap gap-2">
+                {[1, 2, 5, 10, 15, 30, 60].map((mins) => {
+                  const isSelected = (preferences.tabletRefreshIntervalMinutes ?? 5) === mins;
+                  return (
+                    <button
+                      key={mins}
+                      type="button"
+                      onClick={() => updatePreferences({ tabletRefreshIntervalMinutes: mins })}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+                        isSelected
+                          ? 'bg-teal-600 text-white shadow-sm shadow-teal-600/30'
+                          : 'bg-white text-slate-700 border border-slate-200 hover:border-teal-300 hover:bg-teal-50/50'
+                      }`}
+                    >
+                      {mins === 5 ? '5m (Default)' : mins === 60 ? '1 hour' : `${mins}m`}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <p className="text-[11px] text-slate-400 italic">
+                Note: In Tablet Mode, auto-refresh intelligently defers if someone is currently logging an expense or viewing balances.
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="p-3.5 bg-cyan-50/70 rounded-2xl border border-cyan-100 text-xs text-cyan-900 leading-relaxed">

@@ -126,6 +126,8 @@ export interface UserPreferences {
   currency: string;
   currencySymbol: string;
   selectedMonth: string;
+  tabletAutoRefreshEnabled?: boolean;
+  tabletRefreshIntervalMinutes?: number;
 }
 
 export type GuideId = 

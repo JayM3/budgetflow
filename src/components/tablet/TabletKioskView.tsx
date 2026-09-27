@@ -21,6 +21,7 @@ import {
   Eye,
   LogOut,
   RotateCcw,
+  RefreshCw,
   Plus,
   Minus,
   ZoomIn,
@@ -262,6 +263,44 @@ export const TabletKioskView: React.FC = () => {
     }
   };
 
+  // Periodic Auto-Refresh for 24/7 Tablet Kiosk (Default: 5 minutes)
+  const isKioskBusyRef = useRef(false);
+  isKioskBusyRef.current = isKioskActionOpen || isViewBalancesOpen;
+  const pendingReloadRef = useRef(false);
+
+  useEffect(() => {
+    const isAutoRefreshEnabled = preferences.tabletAutoRefreshEnabled ?? true;
+    const intervalMinutes = preferences.tabletRefreshIntervalMinutes ?? 5;
+
+    if (!isAutoRefreshEnabled || intervalMinutes <= 0) return;
+
+    const intervalMs = intervalMinutes * 60 * 1000;
+
+    const intervalId = setInterval(() => {
+      // If a modal is open, defer reload so user's interaction isn't lost
+      if (isKioskBusyRef.current) {
+        pendingReloadRef.current = true;
+        return;
+      }
+      window.location.reload();
+    }, intervalMs);
+
+    return () => clearInterval(intervalId);
+  }, [preferences.tabletAutoRefreshEnabled, preferences.tabletRefreshIntervalMinutes]);
+
+  // When modals close, if a reload was deferred, execute after a 5s grace period
+  useEffect(() => {
+    if (!isKioskActionOpen && !isViewBalancesOpen && pendingReloadRef.current) {
+      const graceTimer = setTimeout(() => {
+        if (!isKioskBusyRef.current) {
+          pendingReloadRef.current = false;
+          window.location.reload();
+        }
+      }, 5000);
+      return () => clearTimeout(graceTimer);
+    }
+  }, [isKioskActionOpen, isViewBalancesOpen]);
+
   const handleOpenLogExpense = () => {
     setIsKioskActionOpen(true);
     setKioskStep('select-user');
@@ -424,6 +463,16 @@ export const TabletKioskView: React.FC = () => {
             onOpenGuide={(id) => setIsGuideOpenWithId(id)}
             className="text-white hover:text-teal-300 w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center bg-white/5 border border-white/10 hover:bg-white/10 transition-all active:scale-95"
           />
+
+          {/* Refresh Page Button (Icon-only between ? and zoom in button) */}
+          <button
+            onClick={() => window.location.reload()}
+            className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center border border-white/10 bg-white/5 text-slate-300 hover:text-white hover:bg-white/10 transition-all active:scale-95"
+            title="Refresh Page"
+            aria-label="Refresh Page"
+          >
+            <RefreshCw className="w-5 h-5" />
+          </button>
 
           {/* Scale Switcher: Standard vs Jumbo Room View (Icon-only, bigger, touch-friendly) */}
           <button
