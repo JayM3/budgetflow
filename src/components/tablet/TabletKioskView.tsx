@@ -416,10 +416,6 @@ export const TabletKioskView: React.FC = () => {
               {dateStr}
             </p>
           </div>
-          <div className="hidden md:flex items-center space-x-2 px-3 py-1.5 bg-white/10 rounded-full text-xs text-teal-200 backdrop-blur-md border border-white/10">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="font-medium">Perpetual Hub Kiosk</span>
-          </div>
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2 ml-auto">
