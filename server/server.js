@@ -455,7 +455,7 @@ app.post('/api/transactions', authenticate, (req, res) => {
   }
 
   const newTx = {
-    id: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+    id: txData.id || `tx_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
     merchant: txData.merchant,
     category: txData.category,
     amount: Number(txData.amount) || 0,
@@ -618,7 +618,7 @@ app.post('/api/categories', authenticate, (req, res) => {
 
   const state = db.getState();
   const newCat = {
-    id: `cat_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+    id: req.body.id || `cat_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
     name: name.trim(),
     allocated: Number(allocated) || 0,
     spent: 0,
@@ -629,6 +629,38 @@ app.post('/api/categories', authenticate, (req, res) => {
   db.setState({ categories: [...state.categories, newCat] });
   addActivityLog('create', 'budget', `Created budget envelope '${newCat.name}' (Cap: ${newCat.allocated})`, user);
   res.json({ success: true, category: newCat });
+});
+
+// 7b-2. Bulk Update Budget Categories
+app.put('/api/categories', authenticate, (req, res) => {
+  const user = req.user;
+  if (user.role !== 'admin' && !user.permissions?.canEditBudgets) {
+    return res.status(403).json({ error: 'Permission denied: cannot edit budget categories.' });
+  }
+
+  const { categories } = req.body;
+  if (!Array.isArray(categories)) {
+    return res.status(400).json({ error: 'Categories array is required.' });
+  }
+
+  const state = db.getState();
+  const currentCategories = state.categories || [];
+
+  const updatedCategories = categories.map((cat) => {
+    const existing = currentCategories.find((c) => c.id === cat.id);
+    return {
+      id: cat.id,
+      name: cat.name !== undefined ? String(cat.name).trim() : existing?.name || '',
+      allocated: cat.allocated !== undefined ? Number(cat.allocated) : existing?.allocated || 0,
+      spent: cat.spent !== undefined ? Number(cat.spent) : existing?.spent || 0,
+      color: cat.color || existing?.color || '#10b981',
+      icon: cat.icon || existing?.icon || 'ShoppingBag',
+    };
+  });
+
+  db.setState({ categories: updatedCategories });
+  addActivityLog('update', 'budget', `Saved all budget categories allocations (${updatedCategories.length} categories)`, user);
+  res.json({ success: true, categories: updatedCategories });
 });
 
 app.put('/api/categories/:id', authenticate, (req, res) => {
@@ -692,7 +724,7 @@ app.post('/api/bills', authenticate, (req, res) => {
 
   const state = db.getState();
   const newBill = {
-    id: `bill_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+    id: req.body.id || `bill_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
     name: name.trim(),
     amount: Number(amount) || 0,
     dueDate: dueDate || new Date().toISOString().split('T')[0],
@@ -783,7 +815,7 @@ app.post('/api/goals', authenticate, (req, res) => {
 
   const state = db.getState();
   const newGoal = {
-    id: `goal_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+    id: req.body.id || `goal_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
     name: name.trim(),
     targetAmount: Number(targetAmount) || 0,
     currentAmount: Number(currentAmount) || 0,
@@ -916,7 +948,7 @@ app.post('/api/wallets', authenticate, (req, res) => {
 
   const state = db.getState();
   const newWallet = {
-    id: `wallet_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+    id: req.body.id || `wallet_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
     name: name.trim(),
     type: type || 'checking',
     balance: Number(balance) || 0,
@@ -997,7 +1029,7 @@ app.post('/api/admin/users', authenticate, (req, res) => {
   const { hash, salt } = hashPattern(patternSequence || [0, 1, 2, 4]);
 
   const newUser = {
-    id: `user_${Date.now()}`,
+    id: req.body.id || `user_${Date.now()}`,
     name,
     role: role || 'member',
     avatar: avatar || '👤',
@@ -1104,6 +1136,78 @@ app.post('/api/restore', authenticate, (req, res) => {
   }
   db.setState(req.body);
   res.json({ success: true });
+});
+
+// 11b. Universal Full-State Save (Used by Save buttons, hard reload beforeunload, and auto-refresh)
+app.post('/api/save-all', authenticate, (req, res) => {
+  const user = req.user;
+  const state = db.getState();
+  const {
+    categories,
+    transactions,
+    bills,
+    goals,
+    wallets,
+    householdSettings,
+    users,
+    activityLogs,
+  } = req.body || {};
+
+  const nextState = {};
+
+  if (Array.isArray(categories) && (user.role === 'admin' || user.permissions?.canEditBudgets)) {
+    nextState.categories = categories.map((cat) => ({
+      id: cat.id,
+      name: String(cat.name || '').trim(),
+      allocated: Number(cat.allocated) || 0,
+      spent: Number(cat.spent) || 0,
+      color: cat.color || '#10b981',
+      icon: cat.icon || 'ShoppingBag',
+    }));
+  }
+
+  if (Array.isArray(transactions)) {
+    nextState.transactions = transactions;
+  }
+
+  if (Array.isArray(bills) && (user.role === 'admin' || user.permissions?.canAddBills)) {
+    nextState.bills = bills;
+  }
+
+  if (Array.isArray(goals) && (user.role === 'admin' || user.permissions?.canAddGoals)) {
+    nextState.goals = goals;
+  }
+
+  if (Array.isArray(wallets) && user.role === 'admin') {
+    nextState.wallets = wallets;
+  }
+
+  if (householdSettings && typeof householdSettings === 'object' && user.role === 'admin') {
+    nextState.householdSettings = { ...state.householdSettings, ...householdSettings };
+  }
+
+  if (Array.isArray(users) && user.role === 'admin') {
+    const mergedUsers = users.map((u) => {
+      const existing = state.users.find((eu) => eu.id === u.id);
+      return {
+        ...u,
+        patternHash: u.patternHash || existing?.patternHash,
+        salt: u.salt || existing?.salt,
+      };
+    });
+    nextState.users = mergedUsers;
+  }
+
+  if (Array.isArray(activityLogs)) {
+    nextState.activityLogs = activityLogs.slice(0, 200);
+  }
+
+  if (Object.keys(nextState).length > 0) {
+    db.setState(nextState);
+    addActivityLog('update', 'system', 'Universal financial data save executed', user);
+  }
+
+  res.json({ success: true, savedAt: new Date().toISOString() });
 });
 
 // 12. Check For Updates (Admin only)

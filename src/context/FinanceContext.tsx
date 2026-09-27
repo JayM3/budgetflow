@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import {
   Transaction,
@@ -209,6 +209,15 @@ interface FinanceContextType {
   // In-Memory Data Refresh (No Hard Reload)
   isRefreshing: boolean;
   refreshData: () => Promise<void>;
+
+  // Data Persistence & Manual Tab Saves
+  saveAll: () => Promise<boolean>;
+  saveBudgetsState: () => Promise<boolean>;
+  saveTransactionsState: () => Promise<boolean>;
+  saveBillsState: () => Promise<boolean>;
+  saveGoalsState: () => Promise<boolean>;
+  saveWalletsState: () => Promise<boolean>;
+  saveFamilyUsersState: () => Promise<boolean>;
 }
 
 
@@ -412,6 +421,37 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     localStorage.setItem(LS_PREFIX + 'activityLogs', JSON.stringify(activityLogs));
   }, [activityLogs]);
+
+  // Live ref holding latest state to guarantee beforeunload / timer callbacks never access stale closures
+  const stateRef = useRef({
+    householdSettings,
+    familyUsers,
+    currentUser,
+    preferences,
+    categories,
+    transactions,
+    bills,
+    goals,
+    allWallets,
+    activityLogs,
+  });
+
+  useEffect(() => {
+    stateRef.current = {
+      householdSettings,
+      familyUsers,
+      currentUser,
+      preferences,
+      categories,
+      transactions,
+      bills,
+      goals,
+      allWallets,
+      activityLogs,
+    };
+  });
+
+  const categoryDebounceTimers = useRef<{ [key: string]: ReturnType<typeof setTimeout> }>({});
 
   // Check backend server status on mount
   useEffect(() => {
@@ -627,10 +667,124 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [isTabletMode]);
 
+  // Universal full-state save function
+  const saveAll = async (): Promise<boolean> => {
+    const current = stateRef.current;
+    try {
+      localStorage.setItem(LS_PREFIX + 'household', JSON.stringify(current.householdSettings));
+      localStorage.setItem(LS_PREFIX + 'familyUsers', JSON.stringify(current.familyUsers));
+      localStorage.setItem(LS_PREFIX + 'currentUser', JSON.stringify(current.currentUser));
+      localStorage.setItem(LS_PREFIX + 'preferences', JSON.stringify(current.preferences));
+      localStorage.setItem(LS_PREFIX + 'categories', JSON.stringify(current.categories));
+      localStorage.setItem(LS_PREFIX + 'transactions', JSON.stringify(current.transactions));
+      localStorage.setItem(LS_PREFIX + 'bills', JSON.stringify(current.bills));
+      localStorage.setItem(LS_PREFIX + 'goals', JSON.stringify(current.goals));
+      localStorage.setItem(LS_PREFIX + 'wallets', JSON.stringify(current.allWallets));
+      localStorage.setItem(LS_PREFIX + 'activityLogs', JSON.stringify(current.activityLogs));
+    } catch (e) {
+      console.error('Failed to sync to localStorage', e);
+    }
+
+    if (isSelfHosted) {
+      const payload = {
+        householdSettings: current.householdSettings,
+        users: current.familyUsers,
+        preferences: current.preferences,
+        categories: current.categories,
+        transactions: current.transactions,
+        bills: current.bills,
+        goals: current.goals,
+        wallets: current.allWallets,
+        activityLogs: current.activityLogs,
+      };
+      const res = await api.saveAll(payload);
+      return res.success;
+    }
+    return true;
+  };
+
+  const saveBudgetsState = async (): Promise<boolean> => {
+    const currentCats = stateRef.current.categories;
+    try {
+      localStorage.setItem(LS_PREFIX + 'categories', JSON.stringify(currentCats));
+    } catch (_) {}
+    if (isSelfHosted) {
+      const ok = await api.saveCategories(currentCats);
+      if (!ok) {
+        return await saveAll();
+      }
+      return ok;
+    }
+    return true;
+  };
+
+  const saveTransactionsState = async (): Promise<boolean> => {
+    return await saveAll();
+  };
+
+  const saveBillsState = async (): Promise<boolean> => {
+    return await saveAll();
+  };
+
+  const saveGoalsState = async (): Promise<boolean> => {
+    return await saveAll();
+  };
+
+  const saveWalletsState = async (): Promise<boolean> => {
+    return await saveAll();
+  };
+
+  const saveFamilyUsersState = async (): Promise<boolean> => {
+    return await saveAll();
+  };
+
+  // Hard reload (F5 / browser refresh) & window unload listener to automatically save all values
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const current = stateRef.current;
+      try {
+        localStorage.setItem(LS_PREFIX + 'household', JSON.stringify(current.householdSettings));
+        localStorage.setItem(LS_PREFIX + 'familyUsers', JSON.stringify(current.familyUsers));
+        localStorage.setItem(LS_PREFIX + 'currentUser', JSON.stringify(current.currentUser));
+        localStorage.setItem(LS_PREFIX + 'preferences', JSON.stringify(current.preferences));
+        localStorage.setItem(LS_PREFIX + 'categories', JSON.stringify(current.categories));
+        localStorage.setItem(LS_PREFIX + 'transactions', JSON.stringify(current.transactions));
+        localStorage.setItem(LS_PREFIX + 'bills', JSON.stringify(current.bills));
+        localStorage.setItem(LS_PREFIX + 'goals', JSON.stringify(current.goals));
+        localStorage.setItem(LS_PREFIX + 'wallets', JSON.stringify(current.allWallets));
+        localStorage.setItem(LS_PREFIX + 'activityLogs', JSON.stringify(current.activityLogs));
+      } catch (_) {}
+
+      if (isSelfHosted) {
+        api.saveAllKeepAlive({
+          householdSettings: current.householdSettings,
+          users: current.familyUsers,
+          preferences: current.preferences,
+          categories: current.categories,
+          transactions: current.transactions,
+          bills: current.bills,
+          goals: current.goals,
+          wallets: current.allWallets,
+          activityLogs: current.activityLogs,
+        });
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handleBeforeUnload);
+    };
+  }, [isSelfHosted]);
+
   // In-Memory Data Refresh: queries server / local storage without hard page reloads
   const refreshData = async () => {
     setIsRefreshing(true);
     try {
+      // First save all in-memory values so auto-refresh never reverts user modifications!
+      await saveAll();
       if (isSelfHosted) {
         const [remoteUsers, remoteData] = await Promise.all([
           api.getFamilyUsers().catch(() => null),
@@ -1154,9 +1308,19 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const updateCategoryAllocation = (categoryId: string, amount: number) => {
+    const rounded = Math.round(amount);
     setCategories((prev) =>
-      prev.map((c) => (c.id === categoryId ? { ...c, allocated: amount } : c))
+      prev.map((c) => (c.id === categoryId ? { ...c, allocated: rounded } : c))
     );
+
+    if (isSelfHosted) {
+      if (categoryDebounceTimers.current[categoryId]) {
+        clearTimeout(categoryDebounceTimers.current[categoryId]);
+      }
+      categoryDebounceTimers.current[categoryId] = setTimeout(() => {
+        api.updateCategory(categoryId, { allocated: rounded });
+      }, 300);
+    }
   };
 
   const rebalanceCategories = (
@@ -1165,8 +1329,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     amount: number
   ) => {
     if (amount <= 0) return;
-    setCategories((prev) =>
-      prev.map((c) => {
+    setCategories((prev) => {
+      const updated = prev.map((c) => {
         if (c.id === fromCategoryId) {
           return { ...c, allocated: Math.max(0, c.allocated - amount) };
         }
@@ -1174,8 +1338,17 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
           return { ...c, allocated: c.allocated + amount };
         }
         return c;
-      })
-    );
+      });
+
+      if (isSelfHosted) {
+        const fromCat = updated.find((c) => c.id === fromCategoryId);
+        const toCat = updated.find((c) => c.id === toCategoryId);
+        if (fromCat) api.updateCategory(fromCat.id, { allocated: fromCat.allocated });
+        if (toCat) api.updateCategory(toCat.id, { allocated: toCat.allocated });
+      }
+
+      return updated;
+    });
     triggerConfetti();
   };
 
@@ -1678,6 +1851,13 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         closeSmartAllocation,
         isRefreshing,
         refreshData,
+        saveAll,
+        saveBudgetsState,
+        saveTransactionsState,
+        saveBillsState,
+        saveGoalsState,
+        saveWalletsState,
+        saveFamilyUsersState,
       }}
     >
       {children}

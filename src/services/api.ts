@@ -245,6 +245,23 @@ export const api = {
     }
   },
 
+  async saveCategories(categories: any[]): Promise<boolean> {
+    const token = this.getToken();
+    try {
+      const res = await fetch(`${API_BASE}/api/categories`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ categories }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
   // Bills and Recurring Income
   async createBill(bill: any): Promise<any> {
     const token = this.getToken();
@@ -471,6 +488,45 @@ export const api = {
       return res.ok;
     } catch {
       return false;
+    }
+  },
+
+  // Universal Full-State Save
+  async saveAll(payload: any): Promise<{ success: boolean; error?: string }> {
+    const token = this.getToken();
+    try {
+      const res = await fetch(`${API_BASE}/api/save-all`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        return { success: true };
+      }
+      const data = await res.json().catch(() => ({}));
+      return { success: false, error: data.error || `HTTP ${res.status}` };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  },
+
+  saveAllKeepAlive(payload: any): void {
+    const token = this.getToken();
+    try {
+      fetch(`${API_BASE}/api/save-all`, {
+        method: 'POST',
+        keepalive: true,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      }).catch(() => {});
+    } catch {
+      // ignore
     }
   },
 

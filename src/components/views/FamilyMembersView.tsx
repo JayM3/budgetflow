@@ -14,6 +14,8 @@ import {
   ArrowRight,
   Eye,
   EyeOff,
+  Save,
+  RefreshCw,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { FamilyUser, UserRole } from '../../types/finance';
@@ -33,7 +35,23 @@ export const FamilyMembersView: React.FC = () => {
     updateFamilyUser,
     deleteFamilyUser,
     setIsGuideOpenWithId,
+    saveFamilyUsersState,
   } = useFinance();
+
+  // Save Button State
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+
+  const handleSaveFamily = async () => {
+    setIsSaving(true);
+    try {
+      await saveFamilyUsersState();
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 2000);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<FamilyUser | null>(null);
@@ -157,13 +175,35 @@ export const FamilyMembersView: React.FC = () => {
           </div>
 
           {isAdmin && (
-            <button
-              onClick={handleOpenAddModal}
-              className="inline-flex items-center justify-center space-x-2 px-5 py-2.5 bg-teal-500 hover:bg-teal-600 text-white font-semibold text-sm rounded-xl shadow-md shadow-teal-500/20 transition-all active:scale-95"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Family Member</span>
-            </button>
+            <div className="flex items-center gap-2.5">
+              <button
+                onClick={handleSaveFamily}
+                disabled={isSaving}
+                className={`inline-flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl font-semibold text-sm border shadow-sm transition-all active:scale-95 disabled:opacity-75 ${
+                  isSaved
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                    : 'border-slate-200 hover:border-teal-400 hover:bg-teal-50/50 text-slate-700'
+                }`}
+                title="Save family members and permissions to server"
+              >
+                {isSaving ? (
+                  <RefreshCw className="w-4 h-4 animate-spin text-teal-600" />
+                ) : isSaved ? (
+                  <Check className="w-4 h-4 text-emerald-600" />
+                ) : (
+                  <Save className="w-4 h-4 text-teal-600" />
+                )}
+                <span>{isSaved ? 'Saved!' : isSaving ? 'Saving...' : 'Save'}</span>
+              </button>
+
+              <button
+                onClick={handleOpenAddModal}
+                className="inline-flex items-center justify-center space-x-2 px-5 py-2.5 bg-teal-500 hover:bg-teal-600 text-white font-semibold text-sm rounded-xl shadow-md shadow-teal-500/20 transition-all active:scale-95"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Family Member</span>
+              </button>
+            </div>
           )}
         </div>
       </div>

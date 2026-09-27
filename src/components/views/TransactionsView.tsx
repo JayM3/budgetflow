@@ -14,6 +14,8 @@ import {
   Calendar as CalendarIcon,
   ArrowDown,
   ArrowUp,
+  Save,
+  RefreshCw,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import {
@@ -37,6 +39,7 @@ export const TransactionsView: React.FC = () => {
     categories,
     wallets,
     currentUser,
+    saveTransactionsState,
   } = useFinance();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -46,6 +49,21 @@ export const TransactionsView: React.FC = () => {
   const [endDate, setEndDate] = useState<string | null>(null);
   const [dateSortOrder, setDateSortOrder] = useState<'desc' | 'asc'>('desc');
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+
+  // Save Button State
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await saveTransactionsState();
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 2000);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // Edit Modal State
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
@@ -247,6 +265,26 @@ export const TransactionsView: React.FC = () => {
           >
             <Download className="w-3.5 h-3.5 text-cyan-600" />
             <span className="hidden sm:inline">Export CSV</span>
+          </button>
+
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className={`px-3.5 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95 disabled:opacity-75 ${
+              isSaved
+                ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                : 'border-slate-200 hover:border-cyan-400 hover:bg-cyan-50/50 text-slate-700'
+            }`}
+            title="Save transactions to server"
+          >
+            {isSaving ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-cyan-600" />
+            ) : isSaved ? (
+              <Check className="w-3.5 h-3.5 text-emerald-600" />
+            ) : (
+              <Save className="w-3.5 h-3.5 text-cyan-600" />
+            )}
+            <span>{isSaved ? 'Saved!' : isSaving ? 'Saving...' : 'Save'}</span>
           </button>
 
           <button

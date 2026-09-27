@@ -14,6 +14,8 @@ import {
   ShieldAlert,
   Sparkles,
   Layers,
+  Save,
+  RefreshCw,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { Wallet } from '../../types/finance';
@@ -54,9 +56,25 @@ export const WalletsView: React.FC = () => {
     addWallet,
     updateWallet,
     deleteWallet,
+    saveWalletsState,
   } = useFinance();
 
   const isAdmin = !currentUser || currentUser.role === 'admin';
+
+  // Save Button State
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+
+  const handleSaveWallets = async () => {
+    setIsSaving(true);
+    try {
+      await saveWalletsState();
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 2000);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // Add / Edit Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -189,13 +207,35 @@ export const WalletsView: React.FC = () => {
           </div>
 
           {isAdmin && (
-            <button
-              onClick={handleOpenAdd}
-              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-teal-600 via-cyan-600 to-sky-600 hover:from-teal-700 hover:to-sky-700 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-md shadow-cyan-600/20 active:scale-95 transition-all ml-auto"
-            >
-              <Plus className="w-4 h-4 stroke-[2.5]" />
-              <span>Add Wallet</span>
-            </button>
+            <div className="flex items-center gap-2.5 ml-auto">
+              <button
+                onClick={handleSaveWallets}
+                disabled={isSaving}
+                className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold border transition-all shadow-sm active:scale-95 disabled:opacity-75 ${
+                  isSaved
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                    : 'border-slate-200 hover:border-cyan-400 hover:bg-cyan-50/50 text-slate-700'
+                }`}
+                title="Save wallets and balances to server"
+              >
+                {isSaving ? (
+                  <RefreshCw className="w-4 h-4 animate-spin text-cyan-600" />
+                ) : isSaved ? (
+                  <Check className="w-4 h-4 text-emerald-600" />
+                ) : (
+                  <Save className="w-4 h-4 text-cyan-600" />
+                )}
+                <span>{isSaved ? 'Saved!' : isSaving ? 'Saving...' : 'Save'}</span>
+              </button>
+
+              <button
+                onClick={handleOpenAdd}
+                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-teal-600 via-cyan-600 to-sky-600 hover:from-teal-700 hover:to-sky-700 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-md shadow-cyan-600/20 active:scale-95 transition-all"
+              >
+                <Plus className="w-4 h-4 stroke-[2.5]" />
+                <span>Add Wallet</span>
+              </button>
+            </div>
           )}
         </div>
       </div>

@@ -11,6 +11,7 @@ import {
   Check,
   X,
   Lock,
+  Save,
   ShoppingBag,
   Home,
   Car,
@@ -64,6 +65,7 @@ export const BudgetsView: React.FC = () => {
     deleteCategory,
     currentUser,
     setIsGuideOpenWithId,
+    saveBudgetsState,
   } = useFinance();
 
   const [fromCatId, setFromCatId] = useState(categories[1]?.id || categories[0]?.id || '');
@@ -73,6 +75,21 @@ export const BudgetsView: React.FC = () => {
   // Direct editing of cap state
   const [editingCapCatId, setEditingCapCatId] = useState<string | null>(null);
   const [editingCapVal, setEditingCapVal] = useState<string>('');
+
+  // Save Button State
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+
+  const handleSaveBudgets = async () => {
+    setIsSaving(true);
+    try {
+      await saveBudgetsState();
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 2000);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // Create Budget Modal state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -170,13 +187,35 @@ export const BudgetsView: React.FC = () => {
         {/* Action Controls */}
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           {canEditBudgets && (
-            <button
-              onClick={() => setIsCreateModalOpen(true)}
-              className="px-4 py-2.5 bg-gradient-to-r from-teal-600 via-cyan-600 to-sky-600 hover:from-teal-700 hover:via-cyan-700 hover:to-sky-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md shadow-cyan-600/20 flex items-center gap-2 transition-all"
-            >
-              <Plus className="w-4 h-4 stroke-[2.5]" />
-              <span>New Budget Category</span>
-            </button>
+            <>
+              <button
+                onClick={handleSaveBudgets}
+                disabled={isSaving}
+                className={`px-4 py-2.5 rounded-xl border text-xs font-bold flex items-center gap-2 transition-all shadow-sm active:scale-95 disabled:opacity-75 ${
+                  isSaved
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                    : 'border-slate-200 hover:border-cyan-400 hover:bg-cyan-50/50 text-slate-700'
+                }`}
+                title="Save all budget allocations to server"
+              >
+                {isSaving ? (
+                  <RefreshCw className="w-4 h-4 animate-spin text-cyan-600" />
+                ) : isSaved ? (
+                  <Check className="w-4 h-4 text-emerald-600" />
+                ) : (
+                  <Save className="w-4 h-4 text-cyan-600" />
+                )}
+                <span>{isSaved ? 'Saved!' : isSaving ? 'Saving...' : 'Save'}</span>
+              </button>
+
+              <button
+                onClick={() => setIsCreateModalOpen(true)}
+                className="px-4 py-2.5 bg-gradient-to-r from-teal-600 via-cyan-600 to-sky-600 hover:from-teal-700 hover:via-cyan-700 hover:to-sky-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md shadow-cyan-600/20 flex items-center gap-2 transition-all"
+              >
+                <Plus className="w-4 h-4 stroke-[2.5]" />
+                <span>New Budget Category</span>
+              </button>
+            </>
           )}
 
           {/* Quick Rebalance Form */}
@@ -370,6 +409,8 @@ export const BudgetsView: React.FC = () => {
                     step="50"
                     value={cat.allocated}
                     onChange={(e) => updateCategoryAllocation(cat.id, parseInt(e.target.value, 10))}
+                    onPointerUp={() => updateCategoryAllocation(cat.id, cat.allocated)}
+                    onKeyUp={() => updateCategoryAllocation(cat.id, cat.allocated)}
                     className="w-full accent-cyan-600 cursor-pointer"
                   />
                 ) : (

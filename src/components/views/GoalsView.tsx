@@ -12,6 +12,8 @@ import {
   RefreshCw,
   Wallet as WalletIcon,
   ArrowRight,
+  Save,
+  Check,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatCurrency, formatDateDisplay } from '../../utils/formatters';
@@ -41,7 +43,23 @@ export const GoalsView: React.FC = () => {
     setIsGuideOpenWithId,
     calculateLeftoverSurplus,
     openSmartAllocation,
+    saveGoalsState,
   } = useFinance();
+
+  // Save Button State
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+
+  const handleSaveGoals = async () => {
+    setIsSaving(true);
+    try {
+      await saveGoalsState();
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 2000);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // Create / Edit Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -216,13 +234,35 @@ export const GoalsView: React.FC = () => {
         </div>
 
         {canManageGoals && (
-          <button
-            onClick={handleOpenAddModal}
-            className="px-5 py-2.5 bg-white text-cyan-900 hover:bg-cyan-50 font-bold text-xs rounded-xl shadow-lg transition-all active:scale-95 flex items-center gap-2 shrink-0"
-          >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span>New Savings Goal</span>
-          </button>
+          <div className="flex items-center gap-2.5 shrink-0">
+            <button
+              onClick={handleSaveGoals}
+              disabled={isSaving}
+              className={`px-4 py-2.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all shadow-md active:scale-95 disabled:opacity-75 ${
+                isSaved
+                  ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                  : 'border-white/30 bg-white/10 hover:bg-white/20 text-white'
+              }`}
+              title="Save savings goals to server"
+            >
+              {isSaving ? (
+                <RefreshCw className="w-4 h-4 animate-spin text-white" />
+              ) : isSaved ? (
+                <Check className="w-4 h-4 text-emerald-600" />
+              ) : (
+                <Save className="w-4 h-4 text-white" />
+              )}
+              <span>{isSaved ? 'Saved!' : isSaving ? 'Saving...' : 'Save'}</span>
+            </button>
+
+            <button
+              onClick={handleOpenAddModal}
+              className="px-5 py-2.5 bg-white text-cyan-900 hover:bg-cyan-50 font-bold text-xs rounded-xl shadow-lg transition-all active:scale-95 flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4 stroke-[2.5]" />
+              <span>New Savings Goal</span>
+            </button>
+          </div>
         )}
       </div>
 

@@ -17,6 +17,8 @@ import {
   ExternalLink,
   X,
   Check,
+  Save,
+  RefreshCw,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatCurrency, formatDateDisplay } from '../../utils/formatters';
@@ -36,9 +38,25 @@ export const BillsView: React.FC = () => {
     wallets,
     currentUser,
     setIsCalendarModalOpen,
+    saveBillsState,
   } = useFinance();
 
   const [activeTab, setActiveTab] = useState<'all' | 'bills' | 'income'>('all');
+
+  // Save Button State
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+
+  const handleSaveRecurring = async () => {
+    setIsSaving(true);
+    try {
+      await saveBillsState();
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 2000);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // Modal State for Add / Edit Recurring Item
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -251,13 +269,35 @@ export const BillsView: React.FC = () => {
           </button>
 
           {canManageBills && (
-            <button
-              onClick={() => handleOpenAddModal('bill')}
-              className="px-4 py-2 bg-gradient-to-r from-teal-600 via-cyan-600 to-sky-600 hover:from-teal-700 hover:via-cyan-700 hover:to-sky-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md shadow-cyan-600/20 flex items-center gap-1.5 transition-all"
-            >
-              <Plus className="w-4 h-4 stroke-[2.5]" />
-              <span>Add Recurring Item</span>
-            </button>
+            <>
+              <button
+                onClick={handleSaveRecurring}
+                disabled={isSaving}
+                className={`px-3.5 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95 disabled:opacity-75 ${
+                  isSaved
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                    : 'border-slate-200 hover:border-cyan-400 hover:bg-cyan-50/50 text-slate-700'
+                }`}
+                title="Save recurring schedule to server"
+              >
+                {isSaving ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-cyan-600" />
+                ) : isSaved ? (
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                ) : (
+                  <Save className="w-3.5 h-3.5 text-cyan-600" />
+                )}
+                <span>{isSaved ? 'Saved!' : isSaving ? 'Saving...' : 'Save'}</span>
+              </button>
+
+              <button
+                onClick={() => handleOpenAddModal('bill')}
+                className="px-4 py-2 bg-gradient-to-r from-teal-600 via-cyan-600 to-sky-600 hover:from-teal-700 hover:via-cyan-700 hover:to-sky-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md shadow-cyan-600/20 flex items-center gap-1.5 transition-all"
+              >
+                <Plus className="w-4 h-4 stroke-[2.5]" />
+                <span>Add Recurring Item</span>
+              </button>
+            </>
           )}
         </div>
       </div>

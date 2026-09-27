@@ -133,11 +133,17 @@ export const QuickAddModal: React.FC = () => {
             </div>
             <div>
               <h3 className="text-base sm:text-lg font-bold">
-                {step === 1 ? 'Step 1: Put in Amount' : 'Step 2: Choose Category & Account'}
+                {step === 1
+                  ? 'Step 1: Put in Amount'
+                  : type === 'income'
+                  ? 'Step 2: Choose Receiving Account'
+                  : 'Step 2: Choose Category & Account'}
               </h3>
               <p className="text-xs text-cyan-100">
                 {step === 1
                   ? 'Use quick +/- buttons or enter the exact sum.'
+                  : type === 'income'
+                  ? 'Tap the receiving wallet to record your entry.'
                   : 'Tap the category and wallet to record your entry.'}
               </p>
             </div>
@@ -270,13 +276,13 @@ export const QuickAddModal: React.FC = () => {
             {/* Merchant / Description (Optional) */}
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                Merchant or Item (Optional)
+                {type === 'income' ? 'Income Source / Description (Optional)' : 'Merchant or Item (Optional)'}
               </label>
               <input
                 type="text"
                 value={merchant}
                 onChange={(e) => setMerchant(e.target.value)}
-                placeholder="e.g. Rema 1000, Starbucks, Gas"
+                placeholder={type === 'income' ? 'e.g. Salary, Client payment, Bonus' : 'e.g. Rema 1000, Starbucks, Gas'}
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-400 text-xs font-semibold text-slate-800"
               />
             </div>
@@ -354,7 +360,7 @@ export const QuickAddModal: React.FC = () => {
                 onClick={() => setStep(2)}
                 className="px-6 py-3 rounded-xl bg-gradient-to-r from-teal-600 via-cyan-600 to-sky-600 hover:from-teal-700 hover:to-sky-700 disabled:opacity-40 text-white font-bold text-xs shadow-md transition-all flex items-center gap-2"
               >
-                <span>Next: Choose Category & Account</span>
+                <span>{type === 'income' ? 'Next: Choose Account' : 'Next: Choose Category & Account'}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
@@ -402,46 +408,48 @@ export const QuickAddModal: React.FC = () => {
               </button>
             </div>
 
-            {/* CATEGORIES BUTTONS GRID */}
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
-                1. Select Category
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[160px] overflow-y-auto pr-1">
-                {categories.map((c) => {
-                  const Icon = iconMap[c.icon] || ShoppingBag;
-                  const isSelected = category.toLowerCase() === c.name.toLowerCase();
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => setCategory(c.name)}
-                      className={`p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all ${
-                        isSelected
-                          ? 'border-teal-500 bg-teal-50/80 ring-2 ring-teal-400 text-teal-950 font-bold shadow-xs'
-                          : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 font-medium'
-                      }`}
-                    >
-                      <div
-                        className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                        style={{
-                          backgroundColor: `${c.color}20`,
-                          color: c.color,
-                        }}
+            {/* CATEGORIES BUTTONS GRID - Only for Expense */}
+            {type === 'expense' && (
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
+                  1. Select Category
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[160px] overflow-y-auto pr-1">
+                  {categories.map((c) => {
+                    const Icon = iconMap[c.icon] || ShoppingBag;
+                    const isSelected = category.toLowerCase() === c.name.toLowerCase();
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setCategory(c.name)}
+                        className={`p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all ${
+                          isSelected
+                            ? 'border-teal-500 bg-teal-50/80 ring-2 ring-teal-400 text-teal-950 font-bold shadow-xs'
+                            : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 font-medium'
+                        }`}
                       >
-                        <Icon className="w-3.5 h-3.5" />
-                      </div>
-                      <span className="text-xs truncate">{c.name}</span>
-                    </button>
-                  );
-                })}
+                        <div
+                          className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                          style={{
+                            backgroundColor: `${c.color}20`,
+                            color: c.color,
+                          }}
+                        >
+                          <Icon className="w-3.5 h-3.5" />
+                        </div>
+                        <span className="text-xs truncate">{c.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* FAMILY CHECKING / WALLET BUTTONS */}
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
-                2. Select Account / Wallet
+                {type === 'expense' ? '2. Select Account / Wallet' : 'Select Receiving Account / Wallet'}
               </label>
               <div className="grid grid-cols-2 gap-2">
                 {wallets.map((w) => {
@@ -453,7 +461,9 @@ export const QuickAddModal: React.FC = () => {
                       onClick={() => setWalletId(w.id)}
                       className={`p-2.5 rounded-xl border text-left flex items-center gap-2.5 transition-all ${
                         isSelected
-                          ? 'border-teal-500 bg-teal-50/80 ring-2 ring-teal-400 text-teal-950 font-bold shadow-xs'
+                          ? type === 'income'
+                            ? 'border-emerald-500 bg-emerald-50/80 ring-2 ring-emerald-400 text-emerald-950 font-bold shadow-xs'
+                            : 'border-teal-500 bg-teal-50/80 ring-2 ring-teal-400 text-teal-950 font-bold shadow-xs'
                           : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 font-medium'
                       }`}
                     >
@@ -489,10 +499,14 @@ export const QuickAddModal: React.FC = () => {
               <button
                 type="button"
                 onClick={() => handleSubmit()}
-                className="px-6 py-3 rounded-xl bg-gradient-to-r from-teal-600 via-cyan-600 to-sky-600 hover:from-teal-700 hover:to-sky-700 text-white font-bold text-xs shadow-md transition-all flex items-center gap-1.5 active:scale-95"
+                className={`px-6 py-3 rounded-xl text-white font-bold text-xs shadow-md transition-all flex items-center gap-1.5 active:scale-95 ${
+                  type === 'income'
+                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700'
+                    : 'bg-gradient-to-r from-teal-600 via-cyan-600 to-sky-600 hover:from-teal-700 hover:to-sky-700'
+                }`}
               >
                 <Check className="w-4 h-4" />
-                <span>Confirm & Save Expense</span>
+                <span>{type === 'income' ? 'Confirm & Save Income' : 'Confirm & Save Expense'}</span>
               </button>
             </div>
           </div>
