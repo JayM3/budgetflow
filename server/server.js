@@ -388,8 +388,147 @@ app.get('/api/auth/me', authenticate, (req, res) => {
    AUTHENTICATED DATA APIS (WALLET-PERMISSION FILTERED)
    ========================================================= */
 
+function getTodayISOServer() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function calculateNextDueDateServer(currentDueDateStr, frequency = 'monthly') {
+  if (!currentDueDateStr) return getTodayISOServer();
+  const parts = currentDueDateStr.split('T')[0].split('-');
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10) - 1;
+  const d = parseInt(parts[2], 10);
+
+  if (isNaN(y) || isNaN(m) || isNaN(d)) return getTodayISOServer();
+  const pad = (n) => String(n).padStart(2, '0');
+
+  if (frequency === 'weekly') {
+    const dt = new Date(y, m, d + 7);
+    return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+  }
+  if (frequency === 'biweekly') {
+    const dt = new Date(y, m, d + 14);
+    return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+  }
+  if (frequency === 'yearly') {
+    const targetY = y + 1;
+    const maxDays = new Date(targetY, m + 1, 0).getDate();
+    const targetD = Math.min(d, maxDays);
+    return `${targetY}-${pad(m + 1)}-${pad(targetD)}`;
+  }
+
+  // Monthly
+  let targetY = y;
+  let targetM = m + 1;
+  if (targetM > 11) {
+    targetY += Math.floor(targetM / 12);
+    targetM = targetM % 12;
+  }
+  const maxDays = new Date(targetY, targetM + 1, 0).getDate();
+  const targetD = Math.min(d, maxDays);
+  return `${targetY}-${pad(targetM + 1)}-${pad(targetD)}`;
+}
+
+function advanceDueDateToFutureServer(currentDueDateStr, frequency = 'monthly', referenceTodayStr) {
+  const todayStr = referenceTodayStr || getTodayISOServer();
+  let nextDueDate = calculateNextDueDateServer(currentDueDateStr, frequency);
+  let iterations = 0;
+  while (nextDueDate <= todayStr && iterations < 100) {
+    nextDueDate = calculateNextDueDateServer(nextDueDate, frequency);
+    iterations++;
+  }
+  return nextDueDate;
+}
+
+function processServerDueBills() {
+  const state = db.getState();
+  if (!state.bills || !Array.isArray(state.bills)) return;
+
+  const todayStr = getTodayISOServer();
+  const dueBills = state.bills.filter((b) => !b.isPaid && b.dueDate <= todayStr);
+  if (dueBills.length === 0) return;
+
+  const newBillsToAdd = [];
+  const newTransactionsToAdd = [];
+  let updatedWallets = [...state.wallets];
+  let updatedCategories = [...state.categories];
+
+  const updatedBills = state.bills.map((b) => {
+    if (!b.isPaid && b.dueDate <= todayStr) {
+      const updated = { ...b, isPaid: true };
+      const nextDueDate = advanceDueDateToFutureServer(b.dueDate, b.frequency, todayStr);
+      const nextInstance = {
+        ...b,
+        id: `bill_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+        dueDate: nextDueDate,
+        isPaid: false,
+        paidByUserId: undefined,
+      };
+      newBillsToAdd.push(nextInstance);
+
+      // Create transaction
+      const isPast = b.dueDate < todayStr;
+      const tx = {
+        id: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+        merchant: b.name,
+        category: b.type === 'income' ? 'Income' : b.category,
+        amount: b.amount,
+        type: b.type === 'income' ? 'income' : 'expense',
+        date: b.dueDate,
+        createdAt: new Date().toISOString(),
+        alreadyHappened: isPast,
+        walletId: b.walletId || (state.wallets[0]?.id || ''),
+        notes: `Automatic payment on scheduled date (${b.dueDate})`,
+        isRecurring: true,
+        userId: 'system',
+        userName: 'Auto-Pay',
+      };
+      newTransactionsToAdd.push(tx);
+
+      // Update wallets if not historical
+      if (tx.walletId && !tx.alreadyHappened) {
+        updatedWallets = updatedWallets.map((w) => {
+          if (w.id === tx.walletId) {
+            const delta = tx.type === 'income' ? tx.amount : -tx.amount;
+            return { ...w, balance: w.balance + delta };
+          }
+          return w;
+        });
+      }
+
+      // Update category spent
+      if (tx.type === 'expense') {
+        updatedCategories = updatedCategories.map((c) => {
+          if (c.name.toLowerCase() === tx.category.toLowerCase()) {
+            return { ...c, spent: c.spent + tx.amount };
+          }
+          return c;
+        });
+      }
+
+      return updated;
+    }
+    return b;
+  });
+
+  db.setState({
+    bills: [...updatedBills, ...newBillsToAdd],
+    transactions: [...newTransactionsToAdd, ...state.transactions],
+    wallets: updatedWallets,
+    categories: updatedCategories,
+  });
+}
+
+// Check due bills on server startup and every 60s
+setInterval(processServerDueBills, 60000);
+
 // 5. Get Financial Data (Filtered according to user's wallet permissions)
 app.get('/api/data', authenticate, (req, res) => {
+  processServerDueBills();
   const state = db.getState();
   const user = req.user;
 
@@ -454,6 +593,10 @@ app.post('/api/transactions', authenticate, (req, res) => {
     return res.status(403).json({ error: 'You do not have permission to spend from this wallet.' });
   }
 
+  const todayStr = getTodayISOServer();
+  const txDateStr = (txData.date || new Date().toISOString()).split('T')[0];
+  const isHistorical = txData.alreadyHappened !== undefined ? Boolean(txData.alreadyHappened) : (txDateStr < todayStr);
+
   const newTx = {
     id: txData.id || `tx_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
     merchant: txData.merchant,
@@ -462,15 +605,16 @@ app.post('/api/transactions', authenticate, (req, res) => {
     type: txData.type || 'expense',
     date: txData.date || new Date().toISOString(),
     createdAt: new Date().toISOString(),
+    alreadyHappened: isHistorical,
     walletId: txData.walletId,
     notes: txData.notes,
     userId: user.userId,
     userName: user.name,
   };
 
-  // Adjust wallet balance
+  // Adjust wallet balance ONLY if not historical
   const updatedWallets = state.wallets.map((w) => {
-    if (w.id === newTx.walletId) {
+    if (w.id === newTx.walletId && !newTx.alreadyHappened) {
       const delta = newTx.type === 'income' ? newTx.amount : -newTx.amount;
       return { ...w, balance: w.balance + delta };
     }
@@ -493,7 +637,7 @@ app.post('/api/transactions', authenticate, (req, res) => {
     categories: updatedCategories,
   });
 
-  addActivityLog('create', 'transaction', `Added transaction '${newTx.merchant}' (${newTx.amount})`, user);
+  addActivityLog('create', 'transaction', `Added transaction '${newTx.merchant}' (${newTx.amount})${newTx.alreadyHappened ? ' [Historical]' : ''}`, user);
 
   res.json({ success: true, transaction: newTx });
 });
@@ -518,22 +662,23 @@ app.put('/api/transactions/:id', authenticate, (req, res) => {
     amount: updates.amount !== undefined ? Number(updates.amount) : oldTx.amount,
     type: updates.type !== undefined ? updates.type : oldTx.type,
     date: updates.date !== undefined ? updates.date : oldTx.date,
+    alreadyHappened: updates.alreadyHappened !== undefined ? Boolean(updates.alreadyHappened) : oldTx.alreadyHappened,
     walletId: updates.walletId !== undefined ? updates.walletId : oldTx.walletId,
     notes: updates.notes !== undefined ? updates.notes : oldTx.notes,
   };
 
-  // Revert old transaction balance & category impact
+  // Revert old transaction balance if old was not historical
   let updatedWallets = state.wallets.map((w) => {
-    if (w.id === oldTx.walletId) {
+    if (w.id === oldTx.walletId && !oldTx.alreadyHappened) {
       const revertDelta = oldTx.type === 'income' ? -oldTx.amount : oldTx.amount;
       return { ...w, balance: w.balance + revertDelta };
     }
     return w;
   });
 
-  // Apply new transaction balance
+  // Apply new transaction balance if new is not historical
   updatedWallets = updatedWallets.map((w) => {
-    if (w.id === newTx.walletId) {
+    if (w.id === newTx.walletId && !newTx.alreadyHappened) {
       const applyDelta = newTx.type === 'income' ? newTx.amount : -newTx.amount;
       return { ...w, balance: w.balance + applyDelta };
     }
@@ -577,9 +722,9 @@ app.delete('/api/transactions/:id', authenticate, (req, res) => {
     return res.status(404).json({ error: 'Transaction not found' });
   }
 
-  // Adjust balance back
+  // Adjust balance back only if not historical
   const updatedWallets = state.wallets.map((w) => {
-    if (w.id === tx.walletId) {
+    if (w.id === tx.walletId && !tx.alreadyHappened) {
       const delta = tx.type === 'income' ? -tx.amount : tx.amount;
       return { ...w, balance: w.balance + delta };
     }
