@@ -88,11 +88,17 @@ export interface SavingsGoal {
   targetDate: string; // YYYY-MM-DD
   category?: string;
   color: string;
+  walletId?: string; // Connected wallet / account storing these savings
+  allocationPercentage?: number; // 0 to 100% of savings allocations
   contributions?: {
     userId: string;
     userName: string;
     amount: number;
     date: string;
+    note?: string;
+    source?: 'manual' | 'leftover_sweep' | 'income_allocation';
+    sourceWalletId?: string;
+    targetWalletId?: string;
   }[];
 }
 

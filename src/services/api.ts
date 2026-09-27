@@ -325,6 +325,28 @@ export const api = {
     }
   },
 
+  async allocateLeftoverToGoals(payload: {
+    allocations: { goalId: string; amount: number; targetWalletId?: string }[];
+    sourceWalletId?: string;
+    description?: string;
+  }): Promise<{ success: boolean; goals?: any[]; wallets?: any[] }> {
+    const token = this.getToken();
+    try {
+      const res = await fetch(`${API_BASE}/api/goals/allocate-leftover`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) return await res.json();
+    } catch {
+      return { success: false };
+    }
+    return { success: false };
+  },
+
   // Wallets
   async createWallet(wallet: any): Promise<any> {
     const token = this.getToken();

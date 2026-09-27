@@ -21,6 +21,7 @@ import { CsvImportModal } from './components/features/CsvImportModal';
 import { CalendarSyncModal } from './components/features/CalendarSyncModal';
 import { ActivityLogModal } from './components/features/ActivityLogModal';
 import { AddRecurringModal } from './components/features/AddRecurringModal';
+import { SmartAllocationModal } from './components/features/SmartAllocationModal';
 
 const AppContent: React.FC = () => {
   const {
@@ -144,6 +145,7 @@ const AppContent: React.FC = () => {
         <CsvImportModal />
         <CalendarSyncModal />
         <ActivityLogModal />
+        <SmartAllocationModal />
 
         {/* Contextual Guide Modal */}
         <GuideModal

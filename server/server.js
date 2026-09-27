@@ -722,7 +722,7 @@ app.post('/api/goals', authenticate, (req, res) => {
     return res.status(403).json({ error: 'Permission denied: cannot create goals.' });
   }
 
-  const { name, targetAmount, currentAmount, targetDate, category, color } = req.body;
+  const { name, targetAmount, currentAmount, targetDate, category, color, walletId, allocationPercentage } = req.body;
   if (!name || !name.trim()) {
     return res.status(400).json({ error: 'Goal name is required.' });
   }
@@ -736,6 +736,8 @@ app.post('/api/goals', authenticate, (req, res) => {
     targetDate: targetDate || new Date().toISOString().split('T')[0],
     category: category || 'Savings',
     color: color || '#0d9488',
+    walletId: walletId || undefined,
+    allocationPercentage: allocationPercentage !== undefined ? Number(allocationPercentage) : 0,
     contributions: [],
   };
 
@@ -765,6 +767,8 @@ app.put('/api/goals/:id', authenticate, (req, res) => {
     targetDate: updates.targetDate !== undefined ? updates.targetDate : goal.targetDate,
     category: updates.category !== undefined ? updates.category : goal.category,
     color: updates.color || goal.color,
+    walletId: updates.walletId !== undefined ? updates.walletId : goal.walletId,
+    allocationPercentage: updates.allocationPercentage !== undefined ? Number(updates.allocationPercentage) : goal.allocationPercentage,
     contributions: updates.contributions || goal.contributions,
   };
 
@@ -772,6 +776,59 @@ app.put('/api/goals/:id', authenticate, (req, res) => {
   db.setState({ goals: updatedGoals });
   addActivityLog('update', 'goal', `Updated savings goal '${updatedGoal.name}' (Current: ${updatedGoal.currentAmount}/${updatedGoal.targetAmount})`, user);
   res.json({ success: true, goal: updatedGoal });
+});
+
+// Batch leftover / income allocation endpoint
+app.post('/api/goals/allocate-leftover', authenticate, (req, res) => {
+  const user = req.user;
+  const { allocations, sourceWalletId, description } = req.body; // allocations: [{ goalId, amount, targetWalletId }]
+  if (!Array.isArray(allocations) || allocations.length === 0) {
+    return res.status(400).json({ error: 'Allocations array is required.' });
+  }
+
+  const state = db.getState();
+  let updatedGoals = [...state.goals];
+  let updatedWallets = [...state.wallets];
+  let totalAllocated = 0;
+
+  allocations.forEach(({ goalId, amount, targetWalletId }) => {
+    const amt = Number(amount);
+    if (!amt || amt <= 0) return;
+    totalAllocated += amt;
+
+    const gIdx = updatedGoals.findIndex((g) => g.id === goalId);
+    if (gIdx !== -1) {
+      const g = updatedGoals[gIdx];
+      const contribution = {
+        userId: user.id,
+        userName: user.name,
+        amount: amt,
+        date: new Date().toISOString(),
+        note: description || 'Leftover allocation',
+        source: 'leftover_sweep',
+        sourceWalletId,
+        targetWalletId: targetWalletId || g.walletId,
+      };
+      updatedGoals[gIdx] = {
+        ...g,
+        currentAmount: (g.currentAmount || 0) + amt,
+        contributions: [contribution, ...(g.contributions || [])],
+      };
+    }
+
+    // Move money between wallets if requested
+    if (sourceWalletId && targetWalletId && sourceWalletId !== targetWalletId) {
+      updatedWallets = updatedWallets.map((w) => {
+        if (w.id === sourceWalletId) return { ...w, balance: w.balance - amt };
+        if (w.id === targetWalletId) return { ...w, balance: w.balance + amt };
+        return w;
+      });
+    }
+  });
+
+  db.setState({ goals: updatedGoals, wallets: updatedWallets });
+  addActivityLog('rebalance', 'goal', description || `Allocated ${totalAllocated} to savings goals`, user);
+  res.json({ success: true, goals: updatedGoals, wallets: updatedWallets });
 });
 
 app.delete('/api/goals/:id', authenticate, (req, res) => {

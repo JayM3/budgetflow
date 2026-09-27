@@ -142,7 +142,7 @@ interface FinanceContextType {
   addWallet: (wallet: Omit<Wallet, 'id'>) => void;
   updateWallet: (wallet: Wallet) => void;
   deleteWallet: (id: string) => void;
-  contributeToGoal: (goalId: string, amount: number) => void;
+  contributeToGoal: (goalId: string, amount: number, sourceWalletId?: string, note?: string) => void;
   bulkImportTransactions: (newTxs: Omit<Transaction, 'id'>[]) => void;
   updatePreferences: (updates: Partial<UserPreferences>) => void;
   resetToDemoData: () => void;
@@ -178,6 +178,33 @@ interface FinanceContextType {
     color: string;
     patternSequence: number[];
   }) => Promise<{ success: boolean; error?: string }>;
+
+  // Leftover & Goal Allocation
+  calculateLeftoverSurplus: () => number;
+  allocateToGoals: (params: {
+    totalAmount: number;
+    source: 'income' | 'month_end' | 'manual';
+    sourceWalletId?: string;
+    goalAllocations?: { goalId: string; amount: number; targetWalletId?: string }[];
+    note?: string;
+  }) => void;
+  isSmartAllocationOpen: boolean;
+  setIsSmartAllocationOpen: (open: boolean) => void;
+  smartAllocationConfig: {
+    defaultAmount: number;
+    source: 'income' | 'month_end' | 'manual';
+    sourceWalletId?: string;
+    title: string;
+    subtitle: string;
+  };
+  openSmartAllocation: (config: {
+    defaultAmount: number;
+    source: 'income' | 'month_end' | 'manual';
+    sourceWalletId?: string;
+    title?: string;
+    subtitle?: string;
+  }) => void;
+  closeSmartAllocation: () => void;
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
@@ -202,6 +229,43 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [isAddRecurringOpen, setIsAddRecurringOpen] = useState(false);
   const [isTabletMode, setIsTabletMode] = useState(false);
   const [activeGuideId, setActiveGuideId] = useState<GuideId | null>(null);
+
+  // Smart Allocation Modal State
+  const [isSmartAllocationOpen, setIsSmartAllocationOpen] = useState<boolean>(false);
+  const [smartAllocationConfig, setSmartAllocationConfig] = useState<{
+    defaultAmount: number;
+    source: 'income' | 'month_end' | 'manual';
+    sourceWalletId?: string;
+    title: string;
+    subtitle: string;
+  }>({
+    defaultAmount: 0,
+    source: 'month_end',
+    sourceWalletId: undefined,
+    title: 'Smart Savings Allocation',
+    subtitle: 'Distribute funds into your savings jars based on your goal allocation percentages.',
+  });
+
+  const openSmartAllocation = (config: {
+    defaultAmount: number;
+    source: 'income' | 'month_end' | 'manual';
+    sourceWalletId?: string;
+    title?: string;
+    subtitle?: string;
+  }) => {
+    setSmartAllocationConfig({
+      defaultAmount: config.defaultAmount,
+      source: config.source,
+      sourceWalletId: config.sourceWalletId,
+      title: config.title || (config.source === 'income' ? 'Income Received • Allocate to Goals' : 'Month-End Surplus Sweep'),
+      subtitle: config.subtitle || 'Distribute funds into your savings jars based on your goal allocation percentages.',
+    });
+    setIsSmartAllocationOpen(true);
+  };
+
+  const closeSmartAllocation = () => {
+    setIsSmartAllocationOpen(false);
+  };
 
   // Self-Hosted / Server Status Detection
   const [isSelfHosted, setIsSelfHosted] = useState<boolean>(false);
@@ -629,6 +693,22 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     logActivity('create', 'transaction', `Added transaction '${newTx.merchant}' (${newTx.amount} ${preferences.currencySymbol})`);
+
+    // When income arrives, offer smart allocation if goals have % allocation
+    if (newTx.type === 'income') {
+      const activeGoalsWithAlloc = goals.filter((g) => (g.allocationPercentage || 0) > 0);
+      if (activeGoalsWithAlloc.length > 0) {
+        setTimeout(() => {
+          openSmartAllocation({
+            defaultAmount: newTx.amount,
+            source: 'income',
+            sourceWalletId: newTx.walletId,
+            title: `Income Received: ${newTx.merchant}`,
+            subtitle: `Allocate your savings percentage from this ${newTx.amount} ${preferences.currencySymbol} deposit across your jars.`,
+          });
+        }, 150);
+      }
+    }
   };
 
   const deleteTransaction = (id: string) => {
@@ -786,6 +866,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       ...goal,
       id: 'g-' + Date.now(),
       currentAmount: goal.currentAmount || 0,
+      walletId: goal.walletId,
+      allocationPercentage: goal.allocationPercentage !== undefined ? Number(goal.allocationPercentage) : 0,
       contributions: [],
     };
     setGoals((prev) => [...prev, newGoal]);
@@ -888,18 +970,165 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     triggerConfetti();
   };
 
-  const contributeToGoal = (goalId: string, amount: number) => {
+  const contributeToGoal = (
+    goalId: string,
+    amount: number,
+    sourceWalletId?: string,
+    note?: string
+  ) => {
     if (amount <= 0) return;
+    const targetGoal = goals.find((g) => g.id === goalId);
+    if (!targetGoal) return;
+
+    const targetWalletId = targetGoal.walletId;
+    const contribution = {
+      userId: currentUser?.id || 'admin',
+      userName: currentUser?.name || 'Admin',
+      amount,
+      date: new Date().toISOString(),
+      note: note || 'Direct deposit',
+      source: 'manual' as const,
+      sourceWalletId,
+      targetWalletId,
+    };
+
     setGoals((prev) =>
       prev.map((g) => {
         if (g.id === goalId) {
           const updated = g.currentAmount + amount;
-          triggerConfetti();
-          return { ...g, currentAmount: updated };
+          return {
+            ...g,
+            currentAmount: updated,
+            contributions: [contribution, ...(g.contributions || [])],
+          };
         }
         return g;
       })
     );
+
+    if (sourceWalletId && targetWalletId && sourceWalletId !== targetWalletId) {
+      setAllWallets((prevWallets) =>
+        prevWallets.map((w) => {
+          if (w.id === sourceWalletId) return { ...w, balance: w.balance - amount };
+          if (w.id === targetWalletId) return { ...w, balance: w.balance + amount };
+          return w;
+        })
+      );
+    }
+
+    if (isSelfHosted) {
+      api.updateGoal(goalId, {
+        currentAmount: targetGoal.currentAmount + amount,
+        contributions: [contribution, ...(targetGoal.contributions || [])],
+      });
+    }
+
+    logActivity('rebalance', 'goal', `Deposited ${amount} ${preferences.currencySymbol} into '${targetGoal.name}'`);
+    triggerConfetti();
+  };
+
+  const calculateLeftoverSurplus = () => {
+    const unpaidBills = visibleBills.filter((b) => !b.isPaid && b.type !== 'income');
+    const upcomingBillsTotal = unpaidBills.reduce((acc, b) => acc + b.amount, 0);
+    return Math.max(0, totalIncome - totalSpent - upcomingBillsTotal);
+  };
+
+  const allocateToGoals = (params: {
+    totalAmount: number;
+    source: 'income' | 'month_end' | 'manual';
+    sourceWalletId?: string;
+    goalAllocations?: { goalId: string; amount: number; targetWalletId?: string }[];
+    note?: string;
+  }) => {
+    const { totalAmount, source, sourceWalletId, goalAllocations, note } = params;
+    if (totalAmount <= 0) return;
+
+    let effectiveAllocations = goalAllocations;
+    if (!effectiveAllocations || effectiveAllocations.length === 0) {
+      const activeGoals = goals.filter((g) => (g.allocationPercentage || 0) > 0);
+      const totalPct = activeGoals.reduce((sum, g) => sum + (g.allocationPercentage || 0), 0);
+      if (totalPct === 0) return;
+
+      effectiveAllocations = activeGoals
+        .map((g) => {
+          const portion = (g.allocationPercentage || 0) / 100;
+          const amt = Math.round(totalAmount * portion * 100) / 100;
+          return {
+            goalId: g.id,
+            amount: amt,
+            targetWalletId: g.walletId,
+          };
+        })
+        .filter((a) => a.amount > 0);
+    }
+
+    if (!effectiveAllocations || effectiveAllocations.length === 0) return;
+
+    const sourceLabel =
+      source === 'income'
+        ? 'Income allocation'
+        : source === 'month_end'
+        ? 'Month-end surplus sweep'
+        : 'Manual allocation';
+
+    // 1. Update goals state
+    setGoals((prevGoals) =>
+      prevGoals.map((g) => {
+        const item = effectiveAllocations!.find((a) => a.goalId === g.id);
+        if (!item || item.amount <= 0) return g;
+
+        const contribution = {
+          userId: currentUser?.id || 'admin',
+          userName: currentUser?.name || 'Admin',
+          amount: item.amount,
+          date: new Date().toISOString(),
+          note: note || sourceLabel,
+          source: (source === 'income' ? 'income_allocation' : 'leftover_sweep') as any,
+          sourceWalletId,
+          targetWalletId: item.targetWalletId || g.walletId,
+        };
+
+        return {
+          ...g,
+          currentAmount: (g.currentAmount || 0) + item.amount,
+          contributions: [contribution, ...(g.contributions || [])],
+        };
+      })
+    );
+
+    // 2. Adjust wallet balances if sourceWalletId provided and target wallets differ
+    setAllWallets((prevWallets) => {
+      let next = [...prevWallets];
+      effectiveAllocations!.forEach((item) => {
+        const targetWalletId = item.targetWalletId;
+        if (sourceWalletId && targetWalletId && sourceWalletId !== targetWalletId) {
+          next = next.map((w) => {
+            if (w.id === sourceWalletId) return { ...w, balance: w.balance - item.amount };
+            if (w.id === targetWalletId) return { ...w, balance: w.balance + item.amount };
+            return w;
+          });
+        }
+      });
+      return next;
+    });
+
+    // 3. Backend sync if self-hosted
+    if (isSelfHosted) {
+      api.allocateLeftoverToGoals({
+        allocations: effectiveAllocations,
+        sourceWalletId,
+        description: `${sourceLabel} of ${totalAmount} ${preferences.currencySymbol}`,
+      });
+    }
+
+    logActivity(
+      'rebalance',
+      'goal',
+      `${sourceLabel}: Allocated ${totalAmount} ${preferences.currencySymbol} into ${effectiveAllocations.length} goal jars`
+    );
+
+    triggerConfetti();
+    setIsSmartAllocationOpen(false);
   };
 
   const bulkImportTransactions = (newTxs: Omit<Transaction, 'id'>[]) => {
@@ -1196,6 +1425,13 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         logoutUser,
         completeInitialSetup,
         registerMember,
+        calculateLeftoverSurplus,
+        allocateToGoals,
+        isSmartAllocationOpen,
+        setIsSmartAllocationOpen,
+        smartAllocationConfig,
+        openSmartAllocation,
+        closeSmartAllocation,
       }}
     >
       {children}

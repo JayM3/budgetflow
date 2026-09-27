@@ -295,6 +295,8 @@ export const demoGoals: SavingsGoal[] = [
     targetDate: '2025-06-30',
     color: '#0D9488',
     category: 'Travel',
+    walletId: 'w-sav',
+    allocationPercentage: 35,
   },
   {
     id: 'g-2',
@@ -304,6 +306,8 @@ export const demoGoals: SavingsGoal[] = [
     targetDate: '2025-03-31',
     color: '#8B5CF6',
     category: 'Safety',
+    walletId: 'w-sav',
+    allocationPercentage: 45,
   },
   {
     id: 'g-3',
@@ -313,6 +317,8 @@ export const demoGoals: SavingsGoal[] = [
     targetDate: '2025-01-15',
     color: '#3B82F6',
     category: 'Tech',
+    walletId: 'w-check',
+    allocationPercentage: 20,
   },
 ];
 

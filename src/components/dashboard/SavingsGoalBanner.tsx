@@ -4,20 +4,19 @@ import { useFinance } from '../../context/FinanceContext';
 import { formatCurrency } from '../../utils/formatters';
 
 export const SavingsGoalBanner: React.FC = () => {
-  const { goals, setActiveView, contributeToGoal, preferences } = useFinance();
+  const {
+    goals,
+    setActiveView,
+    preferences,
+    calculateLeftoverSurplus,
+    openSmartAllocation,
+  } = useFinance();
 
   // Find Vacation Fund goal or fallback to first
   const vacationGoal = goals.find(g => g.name.toLowerCase().includes('vacation')) || goals[0];
   const percent = vacationGoal && vacationGoal.targetAmount > 0
     ? Math.min(100, Math.round((vacationGoal.currentAmount / vacationGoal.targetAmount) * 100))
     : 0;
-
-  const handleQuickAddFifty = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (vacationGoal) {
-      contributeToGoal(vacationGoal.id, 50);
-    }
-  };
 
   if (!vacationGoal) {
     return (
@@ -74,7 +73,7 @@ export const SavingsGoalBanner: React.FC = () => {
         {/* Left Copy & Action */}
         <div className="max-w-xs space-y-2.5">
           <span className="inline-block text-[11px] font-extrabold uppercase tracking-wider text-cyan-900 bg-cyan-100/90 border border-cyan-200/60 px-2.5 py-0.5 rounded-full">
-            SAVINGS GOAL
+            SAVINGS GOAL • {vacationGoal.allocationPercentage || 0}% ALLOCATION
           </span>
           <h3 className="text-2xl font-extrabold text-[#072d47] tracking-tight leading-snug">
             Plan today for a brighter tomorrow
@@ -95,12 +94,20 @@ export const SavingsGoalBanner: React.FC = () => {
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
             <button
-              onClick={handleQuickAddFifty}
-              className="px-3 py-2.5 rounded-xl bg-white/90 hover:bg-white text-cyan-900 text-xs font-semibold border border-cyan-200/80 shadow-sm active:scale-95 transition-all flex items-center gap-1"
-              title="Add $50 deposit now"
+              onClick={(e) => {
+                e.stopPropagation();
+                const surplus = calculateLeftoverSurplus();
+                openSmartAllocation({
+                  defaultAmount: surplus > 0 ? surplus : 500,
+                  source: 'month_end',
+                  title: 'Allocate Surplus to Goals',
+                });
+              }}
+              className="px-3.5 py-2.5 rounded-xl bg-white/90 hover:bg-white text-cyan-900 text-xs font-bold border border-cyan-200/80 shadow-sm active:scale-95 transition-all flex items-center gap-1.5"
+              title="Allocate leftover surplus into savings jars"
             >
               <Sparkles className="w-3.5 h-3.5 text-cyan-600" />
-              <span>+$50</span>
+              <span>Allocate Leftover</span>
             </button>
           </div>
         </div>

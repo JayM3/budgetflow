@@ -7,9 +7,10 @@ import {
   Trash2,
   Edit2,
   X,
-  Check,
   AlertCircle,
-  Coins,
+  Percent,
+  RefreshCw,
+  Wallet as WalletIcon,
   ArrowRight,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
@@ -38,6 +39,8 @@ export const GoalsView: React.FC = () => {
     wallets,
     currentUser,
     setIsGuideOpenWithId,
+    calculateLeftoverSurplus,
+    openSmartAllocation,
   } = useFinance();
 
   // Create / Edit Modal State
@@ -49,9 +52,12 @@ export const GoalsView: React.FC = () => {
   const [targetDate, setTargetDate] = useState('2025-12-31');
   const [category, setCategory] = useState('Savings');
   const [color, setColor] = useState(GOAL_COLORS[0]);
+  const [walletId, setWalletId] = useState('');
+  const [allocationPercentage, setAllocationPercentage] = useState('25');
 
   // Custom Deposit Modal State
   const [depositGoalId, setDepositGoalId] = useState<string | null>(null);
+  const [depositWalletId, setDepositWalletId] = useState<string>('');
   const [customDepositAmt, setCustomDepositAmt] = useState('100');
 
   // Delete confirmation
@@ -59,8 +65,8 @@ export const GoalsView: React.FC = () => {
 
   const canManageGoals = !currentUser || currentUser.role === 'admin' || currentUser.permissions?.canAddGoals;
 
-  const isKr = preferences.currencySymbol.toLowerCase().includes('kr');
-  const quickDeposits = isKr ? [50, 200, 500] : [25, 50, 100];
+  const totalAllocPct = goals.reduce((sum, g) => sum + (g.allocationPercentage || 0), 0);
+  const safeSurplus = calculateLeftoverSurplus();
 
   const handleOpenAddModal = () => {
     setEditingGoal(null);
@@ -70,6 +76,15 @@ export const GoalsView: React.FC = () => {
     setTargetDate('2025-12-31');
     setCategory('General');
     setColor(GOAL_COLORS[0]);
+
+    // Default to a savings wallet if available, otherwise first wallet
+    const defaultSavingsWallet = wallets.find((w) => w.type === 'savings') || wallets[0];
+    setWalletId(defaultSavingsWallet ? defaultSavingsWallet.id : '');
+
+    // Default allocation % to remaining unallocated or 20%
+    const remainingUnalloc = Math.max(0, 100 - totalAllocPct);
+    setAllocationPercentage(remainingUnalloc > 0 ? remainingUnalloc.toString() : '20');
+
     setIsModalOpen(true);
   };
 
@@ -81,6 +96,8 @@ export const GoalsView: React.FC = () => {
     setTargetDate(goal.targetDate);
     setCategory(goal.category || 'General');
     setColor(goal.color || GOAL_COLORS[0]);
+    setWalletId(goal.walletId || wallets[0]?.id || '');
+    setAllocationPercentage((goal.allocationPercentage || 0).toString());
     setIsModalOpen(true);
   };
 
@@ -90,6 +107,7 @@ export const GoalsView: React.FC = () => {
 
     const target = parseFloat(targetAmount);
     const initial = parseFloat(currentAmount) || 0;
+    const allocPct = Math.max(0, Math.min(100, parseFloat(allocationPercentage) || 0));
     if (isNaN(target) || target <= 0) return;
 
     if (editingGoal) {
@@ -101,6 +119,8 @@ export const GoalsView: React.FC = () => {
         targetDate,
         category,
         color,
+        walletId: walletId || undefined,
+        allocationPercentage: allocPct,
       });
     } else {
       addGoal({
@@ -110,10 +130,34 @@ export const GoalsView: React.FC = () => {
         targetDate,
         category,
         color,
+        walletId: walletId || undefined,
+        allocationPercentage: allocPct,
       });
     }
 
     setIsModalOpen(false);
+  };
+
+  const handleAutoBalance = () => {
+    if (goals.length === 0) return;
+    const baseShare = Math.floor(100 / goals.length);
+    const remainder = 100 - baseShare * goals.length;
+
+    goals.forEach((g, idx) => {
+      updateGoal({
+        ...g,
+        allocationPercentage: baseShare + (idx === 0 ? remainder : 0),
+      });
+    });
+  };
+
+  const handleOpenMonthEndSweep = () => {
+    openSmartAllocation({
+      defaultAmount: safeSurplus > 0 ? safeSurplus : 500,
+      source: 'month_end',
+      title: 'Month-End Leftover Allocation',
+      subtitle: `Allocate your unspent monthly surplus (${formatCurrency(safeSurplus, preferences.currencySymbol)}) across your jars.`,
+    });
   };
 
   const handleConfirmDelete = () => {
@@ -123,23 +167,31 @@ export const GoalsView: React.FC = () => {
     }
   };
 
+  const handleOpenDepositModal = (goal: SavingsGoal) => {
+    setDepositGoalId(goal.id);
+    const checking = wallets.find((w) => w.type === 'checking') || wallets[0];
+    setDepositWalletId(checking ? checking.id : '');
+    setCustomDepositAmt('100');
+  };
+
   const handleCustomDepositSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!depositGoalId) return;
 
     const amt = parseFloat(customDepositAmt);
     if (!isNaN(amt) && amt > 0) {
-      contributeToGoal(depositGoalId, amt);
+      contributeToGoal(depositGoalId, amt, depositWalletId || undefined, 'Manual deposit');
       setDepositGoalId(null);
       setCustomDepositAmt('100');
     }
   };
 
   const goalToDelete = goals.find((g) => g.id === deletingGoalId);
+  const goalToDeposit = goals.find((g) => g.id === depositGoalId);
 
   return (
     <div className="space-y-6">
-      {/* Top Banner */}
+      {/* Top Hero Banner */}
       <div className="bg-gradient-to-r from-[#0c2a40] via-[#09476b] to-[#0284c7] rounded-3xl p-6 text-white shadow-card border border-cyan-500/20 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -159,7 +211,7 @@ export const GoalsView: React.FC = () => {
             Turn Intentions Into Reality
           </h2>
           <p className="text-xs text-cyan-100/90 max-w-lg mt-1">
-            Micro-contributions build financial freedom. Allocate spare cash into dedicated jars and watch your dreams fund themselves.
+            Connect each goal to a bank account and assign an allocation percentage. When income is received or month-end arrives, leftover funds are automatically distributed into your jars!
           </p>
         </div>
 
@@ -174,6 +226,83 @@ export const GoalsView: React.FC = () => {
         )}
       </div>
 
+      {/* Top Allocation Distribution Bar & Month-End Action */}
+      <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-card space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-cyan-50 text-cyan-700">
+                <Percent className="w-4 h-4" />
+              </span>
+              <h3 className="text-sm font-bold text-slate-900">
+                Savings Allocation Distribution
+              </h3>
+              <span
+                className={`text-xs font-black px-2 py-0.5 rounded-full ${
+                  totalAllocPct === 100
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    : totalAllocPct > 100
+                    ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                    : 'bg-cyan-50 text-cyan-700 border border-cyan-200'
+                }`}
+              >
+                {totalAllocPct}% / 100%
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              {totalAllocPct === 100
+                ? 'All savings pools are 100% balanced across your goals.'
+                : totalAllocPct < 100
+                ? `${100 - totalAllocPct}% remains in your checking account as an unallocated liquid cushion.`
+                : 'Warning: Total goal allocations exceed 100%! Please rebalance.'}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {canManageGoals && goals.length > 0 && (
+              <button
+                type="button"
+                onClick={handleAutoBalance}
+                className="px-3.5 py-2 rounded-xl border border-slate-200 hover:border-cyan-400 hover:bg-cyan-50 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5"
+                title="Normalize goal percentages to exactly 100%"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-cyan-600" />
+                <span>Auto-Balance 100%</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={handleOpenMonthEndSweep}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-teal-600 via-cyan-600 to-sky-600 hover:from-teal-700 hover:via-cyan-700 hover:to-sky-700 text-white text-xs font-bold shadow-md shadow-cyan-600/20 active:scale-95 transition-all flex items-center gap-1.5"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>
+                Allocate Leftover ({formatCurrency(safeSurplus, preferences.currencySymbol)})
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Multi-segment allocation distribution bar */}
+        {goals.length > 0 && (
+          <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden flex">
+            {goals.map((g) => {
+              const pct = g.allocationPercentage || 0;
+              if (pct <= 0) return null;
+              return (
+                <div
+                  key={g.id}
+                  style={{ width: `${pct}%`, backgroundColor: g.color }}
+                  title={`${g.name}: ${pct}%`}
+                  className="h-full first:rounded-l-full last:rounded-r-full transition-all duration-500 hover:opacity-80"
+                />
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {/* Goals Cards Grid */}
       {goals.length === 0 ? (
         <div className="bg-white rounded-3xl p-12 text-center text-slate-400 text-xs border border-slate-100 shadow-card">
@@ -184,6 +313,9 @@ export const GoalsView: React.FC = () => {
           {goals.map((goal) => {
             const pct = Math.min(100, Math.round((goal.currentAmount / goal.targetAmount) * 100));
             const remaining = Math.max(0, goal.targetAmount - goal.currentAmount);
+            const connectedWallet = wallets.find((w) => w.id === goal.walletId);
+            const allocPct = goal.allocationPercentage || 0;
+            const estimatedMonthlyShare = Math.round(safeSurplus * (allocPct / 100));
 
             return (
               <div
@@ -192,14 +324,15 @@ export const GoalsView: React.FC = () => {
               >
                 <div>
                   {/* Header */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-[10px] font-bold text-cyan-700 bg-cyan-50 border border-cyan-100 px-2 py-0.5 rounded-full uppercase tracking-wider">
                         {goal.category || 'Savings'}
                       </span>
-                      <h3 className="text-lg font-bold text-slate-900 mt-1">
-                        {goal.name}
-                      </h3>
+                      <span className="text-[10px] font-extrabold text-teal-800 bg-teal-50 border border-teal-200/80 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <Percent className="w-2.5 h-2.5" />
+                        <span>{allocPct}% Allocation</span>
+                      </span>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -226,6 +359,19 @@ export const GoalsView: React.FC = () => {
                         </div>
                       )}
                     </div>
+                  </div>
+
+                  <h3 className="text-lg font-bold text-slate-900 mb-2">
+                    {goal.name}
+                  </h3>
+
+                  {/* Connected Wallet Badge */}
+                  <div className="mb-4 flex items-center justify-between text-xs bg-slate-50 border border-slate-100 rounded-xl px-3 py-1.5">
+                    <span className="text-slate-400 font-medium">Connected Account</span>
+                    <span className="font-bold text-slate-700 flex items-center gap-1.5 truncate max-w-[160px]">
+                      <WalletIcon className="w-3.5 h-3.5 text-cyan-600 shrink-0" />
+                      <span className="truncate">{connectedWallet ? connectedWallet.name : 'Unassigned'}</span>
+                    </span>
                   </div>
 
                   {/* Visual Progress Jar Graphic */}
@@ -255,7 +401,7 @@ export const GoalsView: React.FC = () => {
                     />
                   </div>
 
-                  <div className="flex justify-between items-center text-xs text-slate-400 mb-5">
+                  <div className="flex justify-between items-center text-xs text-slate-400 mb-4">
                     <span>{formatCurrency(remaining, preferences.currencySymbol)} to go</span>
                     <span className="flex items-center gap-1">
                       <Calendar className="w-3 h-3 text-slate-400" />
@@ -264,39 +410,22 @@ export const GoalsView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Deposit Action */}
-                <div className="pt-4 border-t border-slate-100 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                      Quick Deposit Funds
+                {/* Card Footer: Allocation Information & Deliberate Deposit */}
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] text-slate-400 font-medium">Est. Monthly Share</span>
+                    <span className="text-xs font-bold text-emerald-600">
+                      +{formatCurrency(estimatedMonthlyShare, preferences.currencySymbol)} / mo
                     </span>
-                    <button
-                      onClick={() => setDepositGoalId(goal.id)}
-                      className="text-[11px] font-bold text-cyan-600 hover:text-cyan-700"
-                    >
-                      Custom +
-                    </button>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    {quickDeposits.map((amt, idx) => {
-                      const isLast = idx === quickDeposits.length - 1;
-                      return (
-                        <button
-                          key={amt}
-                          onClick={() => contributeToGoal(goal.id, amt)}
-                          className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                            isLast
-                              ? 'bg-gradient-to-r from-teal-600 via-cyan-600 to-sky-600 hover:from-teal-700 hover:via-cyan-700 hover:to-sky-700 active:scale-95 text-white shadow-md shadow-cyan-600/20 flex items-center justify-center gap-1'
-                              : 'border border-slate-200 hover:border-cyan-400 hover:bg-cyan-50 text-slate-700 active:scale-95'
-                          }`}
-                        >
-                          {isLast && <Sparkles className="w-3 h-3" />}
-                          <span>+{formatCurrency(amt, preferences.currencySymbol)}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <button
+                    onClick={() => handleOpenDepositModal(goal)}
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 hover:border-cyan-400 hover:bg-cyan-50 text-cyan-900 text-xs font-bold active:scale-95 transition-all flex items-center gap-1"
+                  >
+                    <span>Deposit</span>
+                    <ArrowRight className="w-3 h-3 text-cyan-600" />
+                  </button>
                 </div>
               </div>
             );
@@ -307,7 +436,7 @@ export const GoalsView: React.FC = () => {
       {/* ADD / EDIT GOAL MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-slate-100 p-6 text-slate-800">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-slate-100 p-6 text-slate-800 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
               <div className="flex items-center gap-2">
                 <div className="p-2 rounded-xl bg-cyan-50 text-cyan-600">
@@ -338,6 +467,59 @@ export const GoalsView: React.FC = () => {
                   onChange={(e) => setName(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 />
+              </div>
+
+              {/* CONNECTED WALLET SELECTION */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
+                    Connected Wallet / Account
+                  </label>
+                  <span className="text-[10px] text-cyan-700 font-semibold">Where funds are stored</span>
+                </div>
+                <select
+                  required
+                  value={walletId}
+                  onChange={(e) => setWalletId(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                >
+                  <option value="" disabled>Select an account</option>
+                  {wallets.map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.name} ({w.type} • {formatCurrency(w.balance, preferences.currencySymbol)})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Leftover money or income allocations will automatically be linked to this account.
+                </p>
+              </div>
+
+              {/* ALLOCATION % OPTION */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
+                    Savings Allocation Share (%)
+                  </label>
+                  <span className="text-[10px] text-teal-700 font-extrabold">0% to 100%</span>
+                </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    required
+                    value={allocationPercentage}
+                    onChange={(e) => setAllocationPercentage(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  />
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                    %
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Percentage of monthly surplus or incoming paycheck allocated to this goal.
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -442,12 +624,15 @@ export const GoalsView: React.FC = () => {
         </div>
       )}
 
-      {/* CUSTOM DEPOSIT MODAL */}
-      {depositGoalId && (
+      {/* DELIBERATE DEPOSIT MODAL */}
+      {depositGoalId && goalToDeposit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl border border-slate-100 p-6 text-slate-800">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-              <h3 className="font-bold text-slate-900 text-sm">Deposit Funds to Jar</h3>
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm">Deposit to {goalToDeposit.name}</h3>
+                <p className="text-[11px] text-slate-400">Transfer funds into this savings jar</p>
+              </div>
               <button onClick={() => setDepositGoalId(null)}>
                 <X className="w-4 h-4 text-slate-400" />
               </button>
@@ -456,12 +641,29 @@ export const GoalsView: React.FC = () => {
             <form onSubmit={handleCustomDepositSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                  Funding From Account
+                </label>
+                <select
+                  value={depositWalletId}
+                  onChange={(e) => setDepositWalletId(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                >
+                  {wallets.map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.name} ({formatCurrency(w.balance, preferences.currencySymbol)})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
                   Amount to Deposit ({preferences.currencySymbol})
                 </label>
                 <input
                   type="number"
                   min="1"
-                  step="1"
+                  step="any"
                   required
                   autoFocus
                   value={customDepositAmt}
@@ -482,7 +684,7 @@ export const GoalsView: React.FC = () => {
                   type="submit"
                   className="px-5 py-2 rounded-xl bg-gradient-to-r from-teal-600 to-cyan-600 text-white font-bold text-xs shadow-md shadow-cyan-600/20 hover:from-teal-700 hover:to-cyan-700 active:scale-95 transition-all"
                 >
-                  Deposit
+                  Deposit Funds
                 </button>
               </div>
             </form>
