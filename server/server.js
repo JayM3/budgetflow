@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import os from 'os';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { db } from './db.js';
 import { hashPattern, verifyPattern, createSession, getSession } from './auth.js';
@@ -488,7 +489,9 @@ app.get('*', (req, res) => {
   });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+const pidFile = path.join(__dirname, 'data', 'budgetflow.pid');
+
+const server = app.listen(PORT, '0.0.0.0', () => {
   const lanIp = getLocalIp();
   console.log(`
 ╔═══════════════════════════════════════════════════════════════════╗
@@ -504,3 +507,23 @@ app.listen(PORT, '0.0.0.0', () => {
 ╚═══════════════════════════════════════════════════════════════════╝
 `);
 });
+
+// Graceful shutdown
+function gracefulShutdown(signal) {
+  console.log(`\nReceived ${signal}. Shutting down BudgetFlow server gracefully...`);
+  server.close(() => {
+    try {
+      if (fs.existsSync(pidFile)) {
+        const stored = fs.readFileSync(pidFile, 'utf-8').trim();
+        if (stored === String(process.pid)) {
+          fs.unlinkSync(pidFile);
+        }
+      }
+    } catch (_) {}
+    process.exit(0);
+  });
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+

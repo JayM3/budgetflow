@@ -242,28 +242,57 @@ chmod +x install.sh start.sh
 > [!NOTE]
 > On Android Termux, `install.sh` automatically uses `pkg` to install `nodejs` and `git` without requiring root permissions.
 
-#### 3. Start the Server
+#### 3. Control & Manage with the `budgetflow` CLI
+
+BudgetFlow provides a unified cross-platform CLI tool:
+
 ```bash
-./start.sh
-# or customize the port:
-PORT=5050 ./start.sh
+# Start the server daemon (runs in background by default)
+budgetflow
+
+# Or explicitly:
+budgetflow start
+
+# Check live server status, PID, and local network Wi-Fi URL
+budgetflow status
+
+# View or stream live background logs
+budgetflow logs -f
+
+# Stop the running server
+budgetflow stop
+
+# Restart the server
+budgetflow restart
+
+# Run environment & network diagnostics
+budgetflow doctor
+
+# Create an immediate database backup snapshot
+budgetflow backup
+
+# Factory reset: wipes all data back to clean slate (with automated safety backup)
+budgetflow wipe
+
+# Open BudgetFlow in your default browser
+budgetflow open
 ```
 
-Upon launch, BudgetFlow automatically queries your local network interface and prints accessible URLs:
+##### Command Reference Table
 
-```
-╔═══════════════════════════════════════════════════════════════╗
-║                   🌊 BUDGETFLOW FAMILY HUB 🌊                 ║
-║            Private, Lightweight Household Finance Server      ║
-╠═══════════════════════════════════════════════════════════════╣
-║                                                               ║
-║  📱 Local Tablet Access:      http://localhost:5050           ║
-║  🏠 Household Wi-Fi Access:   http://192.168.1.45:5050        ║
-║                                                               ║
-║  Features: Multi-User, 9-Dot Pattern Auth, Tablet Kiosk Mode, ║
-║            Wallet Permissions & Termux / Linux Ready          ║
-╚═══════════════════════════════════════════════════════════════╝
-```
+| Command | Options | Description |
+| :--- | :--- | :--- |
+| `budgetflow` / `budgetflow start` | `-p, --port <port>`<br>`-f, --foreground`<br>`-o, --open` | Starts the server in background daemon mode (default) or attached in terminal (`-f`). |
+| `budgetflow stop` | `--force` | Stops the running background process. |
+| `budgetflow restart` | `-p, --port <port>` | Stops and immediately restarts the hub server. |
+| `budgetflow status` | `--json` | Displays active status, PID, port, LAN IPv4 address, and setup state. |
+| `budgetflow logs` | `-f, --follow`<br>`-n, --lines <n>` | Tails or streams live output logs from `server/data/budgetflow.log`. |
+| `budgetflow wipe` | `-y, --yes`<br>`--no-backup`<br>`--reinstall` | **Factory Reset**: Wipes all data, users, and transactions. Automatically saves a safety snapshot before resetting unless `--no-backup` is specified. |
+| `budgetflow backup` | `[output-dir]` | Creates timestamped snapshot in `server/data/backups/`. |
+| `budgetflow restore` | `<backup-file> -y` | Overwrites current database with specified backup snapshot. |
+| `budgetflow export` | `[json\|csv] -o <file>` | Exports data to full JSON or CSV transaction statement. |
+| `budgetflow doctor` | *(none)* | Comprehensive health check (Node, npm, permissions, port, IP). |
+| `budgetflow service` | `install \| uninstall` | Installs system autostart (Linux systemd user unit or Termux:Boot script). |
 
 #### 4. Initial Setup Wizard
 On first visit to `http://<server-ip>:5050`, the guided setup modal prompts you to:
@@ -326,33 +355,30 @@ High-resolution application assets located in [`public/`](public/) and [`Icon/`]
 
 ```
 budgetflow/
-├── .gitignore                            # Comprehensive ignore rules (excluding personal & ## folders)
-├── LICENSE                               # MIT License
-├── README.md                             # Documentation
-├── index.html                            # HTML entry point with Plus Jakarta Sans & Inter fonts
-├── install.sh                            # One-click installer for Linux & Android Termux
-├── package.json                          # Frontend dependencies & build scripts
-├── package-lock.json                     # Dependency lockfile
-├── postcss.config.js                     # PostCSS configuration
+├── bin/                                  # Global CLI Executables
+│   ├── budgetflow.js                     # Unified cross-platform Node CLI entrypoint
+│   └── budgetflow.cmd                    # Windows Command Prompt launcher
+├── install.sh                            # One-click installer with automatic global CLI linking
 ├── start.sh                              # Hub server quick launcher
-├── tailwind.config.js                    # Tailwind CSS theme extensions
-├── tsconfig.json                         # TypeScript configuration
-├── tsconfig.node.json                    # Node TypeScript configuration
-├── vite.config.ts                        # Vite bundler configuration with relative pathing
-├── Icon/                                 # High-resolution master brand assets
-│   └── Icon.png                          # Master logo
-├── public/                               # Static web assets
-│   ├── favicon.png                       # Browser tab icon
-│   ├── icon.png                          # Mobile touch icon
-│   └── logo.png                          # High-res transparent logo
+├── package.json                          # Frontend dependencies, bin entry & build scripts
+├── package-lock.json                     # Dependency lockfile
 ├── server/                               # Lightweight Self-Hosted Family Hub Backend
 │   ├── auth.js                           # 9-dot pattern hasher (PBKDF2/SHA-256) & sessions
 │   ├── db.js                             # Atomic JSON transactional storage (power-loss safe)
 │   ├── package.json                      # Backend dependencies (express, cors - zero C++ modules)
 │   ├── server.js                         # Express HTTP/REST API server (0.0.0.0:5050)
-│   └── data/                             # Local household database storage (gitignored)
-│       └── .gitkeep                      # Preserves directory structure
-└── src/                                  # Frontend Application Source Code (React 18 + TS)
+│   ├── cli/                              # CLI Command Implementations
+│   │   ├── processManager.js             # Daemon spawn, PID tracking, stop/kill, log streaming
+│   │   ├── dataManager.js                # Factory wipe, automated backup, restore & export
+│   │   ├── doctor.js                     # Health & environment diagnostics
+│   │   ├── serviceManager.js             # Linux systemd & Termux:Boot autostart config
+│   │   └── ui.js                         # Box drawing banners, colors & prompts
+│   └── data/                             # Local household database storage & backups
+│       ├── budgetflow.json               # Live household database
+│       └── backups/                      # Automated pre-wipe & manual snapshots
+├── dist/                                 # Production compiled frontend bundle
+├── public/                               # Static web assets
+├── src/                                  # Frontend Application Source Code (React 18 + TS)
     ├── App.tsx                           # Root application layout & routing
     ├── main.tsx                          # React DOM entry point
     ├── index.css                         # Global CSS & Tailwind layers

@@ -21,6 +21,7 @@ dist-ssr/
 # Preserves data directory structure while ignoring live user databases & backups
 server/data/*.json
 server/data/*.tmp
+server/data/*.pid
 server/data/backups/
 !server/data/.gitkeep
 *.tmp

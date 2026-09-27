@@ -55,18 +55,38 @@ cd server
 npm install --no-audit --prefer-offline
 cd ..
 
-# 5. Make start.sh executable
+# 5. Make CLI & Scripts Executable and Register Globally
 chmod +x start.sh 2>/dev/null || true
+chmod +x bin/budgetflow.js 2>/dev/null || true
+
+CLI_REGISTERED=false
+if [ "$IS_TERMUX" = true ] && [ -d "$PREFIX/bin" ]; then
+    ln -sf "$(pwd)/bin/budgetflow.js" "$PREFIX/bin/budgetflow"
+    CLI_REGISTERED=true
+    echo "🔗 Registered global command: budgetflow -> $PREFIX/bin/budgetflow"
+elif [ -d "$HOME/.local/bin" ] || mkdir -p "$HOME/.local/bin" 2>/dev/null; then
+    ln -sf "$(pwd)/bin/budgetflow.js" "$HOME/.local/bin/budgetflow" 2>/dev/null || true
+    CLI_REGISTERED=true
+fi
+
+# Also attempt npm link for global registration
+npm link --silent 2>/dev/null || true
 
 echo ""
 echo "╔═══════════════════════════════════════════════════════════════╗"
 echo "║               🎉 INSTALLATION COMPLETE! 🎉                    ║"
 echo "╠═══════════════════════════════════════════════════════════════╣"
-echo "║  To start BudgetFlow Family Hub anytime:                      ║"
+echo "║  BudgetFlow CLI Commands are ready to use:                    ║"
 echo "║                                                               ║"
-echo "║      ./start.sh                                               ║"
-echo "║  or: node server/server.js                                    ║"
+echo "║    budgetflow          - Start Hub server (runs in background)║"
+echo "║    budgetflow stop     - Stop the running server              ║"
+echo "║    budgetflow restart  - Restart the server                   ║"
+echo "║    budgetflow status   - View active status & local Wi-Fi IP  ║"
+echo "║    budgetflow logs -f  - Follow live server output logs       ║"
+echo "║    budgetflow wipe     - Factory reset & wipe data            ║"
+echo "║    budgetflow doctor   - Run system health diagnostics        ║"
 echo "║                                                               ║"
-echo "║  Default Port: 5050 (Change with: PORT=3000 ./start.sh)        ║"
+echo "║  Default Port: 5050 (or PORT=3000 budgetflow)                 ║"
 echo "╚═══════════════════════════════════════════════════════════════╝"
 echo ""
+

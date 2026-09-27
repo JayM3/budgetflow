@@ -3,7 +3,11 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "bin": {
+    "budgetflow": "./bin/budgetflow.js"
+  },
   "scripts": {
+    "budgetflow": "node bin/budgetflow.js",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview"
