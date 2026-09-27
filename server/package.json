@@ -1,6 +1,6 @@
 {
   "name": "budgetflow-server",
-  "version": "1.0.1.1",
+  "version": "1.0.1.2",
   "description": "Lightweight, zero-compilation local family finance hub server for Linux and Android Termux",
   "main": "server.js",
   "type": "module",
