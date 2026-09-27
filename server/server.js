@@ -312,10 +312,10 @@ app.post('/api/auth/register-member', (req, res) => {
     color: color || '#0d9488',
     patternHash: hash,
     salt,
-    allowedWalletIds: state.wallets.map((w) => w.id), // Access to household shared wallets
+    allowedWalletIds: state.wallets.length > 0 ? [state.wallets[0].id] : [],
     permissions: {
-      canAddBills: false,
-      canAddGoals: true,
+      canAddBills: true,
+      canAddGoals: false,
       canEditBudgets: false,
       canViewHouseholdReports: false,
     },

@@ -92,8 +92,8 @@ export const demoFamilyUsers: FamilyUser[] = [
     patternSequence: [0, 3, 6, 7],
     allowedWalletIds: ['w-cash'],
     permissions: {
-      canAddBills: false,
-      canAddGoals: true,
+      canAddBills: true,
+      canAddGoals: false,
       canEditBudgets: false,
       canViewHouseholdReports: false,
     },
