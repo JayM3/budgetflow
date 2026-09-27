@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
+  }
+}
+
+/* Custom subtle scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(6, 182, 212, 0.25);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(6, 182, 212, 0.5);
+}
+
+/* Card glassmorphism subtle border */
+.card-glass {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 10px 30px -5px rgba(6, 182, 212, 0.05), 0 4px 10px -2px rgba(15, 23, 42, 0.02);
+}
+
+/* Gradient glow badge */
+.badge-glow {
+  box-shadow: 0 0 16px rgba(6, 182, 212, 0.28);
+}
+
+/* Signature Flow gradients */
+.text-gradient-flow {
+  background: linear-gradient(135deg, #14b8a6 0%, #06b6d4 50%, #0284c7 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.bg-gradient-flow {
+  background: linear-gradient(135deg, #0d9488 0%, #0891b2 50%, #0284c7 100%);
+}
+
+.bg-gradient-ocean {
+  background: linear-gradient(135deg, #0c2a40 0%, #093b5d 50%, #071f30 100%);
+}

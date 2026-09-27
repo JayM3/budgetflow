@@ -1,0 +1,59 @@
+# ==============================================================================
+# Git Ignore Configuration - BudgetFlow
+# ==============================================================================
+
+# User Personal & Inspo Folders (Escaped '#' so Git does not interpret as comments)
+\##*
+\##*/
+\#\#*
+\#\#*/
+
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Production Build Output
+dist/
+dist-ssr/
+*.local
+
+# Server Persistent Data & Backups (Local Household Financial State)
+# Preserves data directory structure while ignoring live user databases & backups
+server/data/*.json
+server/data/*.tmp
+server/data/backups/
+!server/data/.gitkeep
+*.tmp
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.*.local
+*.pem
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editor & OS Metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Test Coverage & Tooling Caches
+coverage/
+.nyc_output/
+.eslintcache
