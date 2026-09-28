@@ -599,13 +599,30 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Check backend server status and pull central household data on mount
   useEffect(() => {
     const initServerCheck = async () => {
-      const status = await api.checkStatus();
+      // 1. Resilient status check with retries to withstand mobile Wi-Fi connection latency
+      let status: ServerStatus | null = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        status = await api.checkStatus();
+        if (status) break;
+        if (attempt < 2) {
+          await new Promise((resolve) => setTimeout(resolve, 350));
+        }
+      }
+
       if (status) {
         setIsSelfHosted(true);
         setServerStatus(status);
 
-        // Fetch full household financial data directly from the server host
-        let remoteData = await api.getData();
+        // Fetch full household financial data & users directly from the server host
+        const [remoteDataRes, remoteUsersRes] = await Promise.all([
+          api.getData(),
+          api.getFamilyUsers().catch(() => []),
+        ]);
+
+        let remoteData = remoteDataRes;
+        const availableUsers = (remoteUsersRes && remoteUsersRes.length > 0)
+          ? remoteUsersRes
+          : (remoteData?.allUsers || []);
 
         // Check if server database has empty collections but local browser storage has data from prior testing
         const localTransactionsStr = localStorage.getItem(LS_PREFIX + 'transactions');
@@ -637,14 +654,21 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
           if (refreshed) remoteData = refreshed;
         }
 
-        if (!status.isSetupCompleted && (!remoteData?.householdSettings?.isSetupCompleted)) {
+        const isHubConfigured = Boolean(
+          status.isSetupCompleted ||
+          remoteData?.householdSettings?.isSetupCompleted ||
+          availableUsers.length > 0
+        );
+
+        if (!isHubConfigured) {
           setIsInitialSetupModalOpen(true);
         } else {
+          setIsInitialSetupModalOpen(false);
           if (remoteData) {
             if (remoteData.updatedAt) lastServerUpdateRef.current = remoteData.updatedAt;
             if (remoteData.householdSettings) setHouseholdSettings(remoteData.householdSettings);
-            if (remoteData.allUsers && remoteData.allUsers.length > 0) {
-              setFamilyUsers(remoteData.allUsers);
+            if (availableUsers.length > 0) {
+              setFamilyUsers(availableUsers);
             }
             if (remoteData.categories && remoteData.categories.length > 0) setCategories(remoteData.categories);
             if (remoteData.allWallets && remoteData.allWallets.length > 0) {
@@ -663,7 +687,6 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
             }
 
             // Ensure currentUser always has latest role & permissions from server
-            const availableUsers = remoteData.allUsers || [];
             const savedUserStr = localStorage.getItem(LS_PREFIX + 'currentUser');
             const savedUser = savedUserStr ? JSON.parse(savedUserStr) : null;
             if (!savedUser) {
@@ -2211,6 +2234,28 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         if (res.token) {
           api.setToken(res.token);
         }
+      } else {
+        console.warn('Hub setup was rejected or already completed:', res.error);
+        // Recover state from existing hub to avoid displaying an empty state
+        const [refreshedData, refreshedUsers] = await Promise.all([
+          api.getData(),
+          api.getFamilyUsers().catch(() => []),
+        ]);
+        if (refreshedData) {
+          if (refreshedData.householdSettings) setHouseholdSettings(refreshedData.householdSettings);
+          if (refreshedData.transactions) setTransactions(refreshedData.transactions);
+          if (refreshedData.bills) setBills(refreshedData.bills);
+          if (refreshedData.goals) setGoals(refreshedData.goals);
+          if (refreshedData.wallets) setAllWallets(refreshedData.wallets);
+          if (refreshedData.categories) setCategories(refreshedData.categories);
+        }
+        const usersList = (refreshedUsers && refreshedUsers.length > 0)
+          ? refreshedUsers
+          : (refreshedData?.allUsers || []);
+        if (usersList.length > 0) {
+          setFamilyUsers(usersList);
+        }
+        setIsUserSelectModalOpen(true);
       }
     }
   };

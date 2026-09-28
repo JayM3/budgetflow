@@ -72,7 +72,7 @@ export const SettingsView: React.FC = () => {
       setUpdateInfo({
         success: false,
         updateAvailable: false,
-        currentVersion: '1.0.2',
+        currentVersion: '1.0.2.2',
         error: 'Could not contact server to check updates.',
       });
 
@@ -403,7 +403,7 @@ export const SettingsView: React.FC = () => {
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-[#1A283E] text-slate-700 dark:text-slate-300 font-mono border border-slate-200 dark:border-[#1F304B]">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>v{updateInfo?.currentVersion || '1.0.2'}</span>
+              <span>v{updateInfo?.currentVersion || '1.0.2.2'}</span>
             </span>
           </div>
         </div>

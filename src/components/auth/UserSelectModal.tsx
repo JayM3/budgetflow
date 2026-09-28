@@ -30,6 +30,12 @@ export const UserSelectModal: React.FC<UserSelectModalProps> = ({
 
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>(users.length > 0 ? 'login' : 'signup');
 
+  React.useEffect(() => {
+    if (users.length > 0) {
+      setActiveTab('login');
+    }
+  }, [users.length]);
+
   // Login State
   const [selectedUser, setSelectedUser] = useState<FamilyUser | null>(null);
   const [authError, setAuthError] = useState<string>('');

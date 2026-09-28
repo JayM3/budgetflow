@@ -128,6 +128,9 @@ export const InitialSetupModal: React.FC<InitialSetupModalProps> = ({
               <p className="text-sm text-slate-500 mt-1">
                 Let's set up your private, self-hosted household finance system.
               </p>
+              <div className="mt-2.5 p-2.5 bg-amber-50/80 border border-amber-200/60 rounded-xl text-[11px] text-amber-800 text-left">
+                <strong>First-time Installation:</strong> This wizard creates your master household and admin profile. If your family already has a Hub running, connect to that Hub's Wi-Fi / IP address to log into your existing profile.
+              </div>
             </div>
 
             <div className="space-y-4">

@@ -13,6 +13,8 @@ export interface ServerStatus {
   householdName: string;
   currency: string;
   currencySymbol: string;
+  hasUsers?: boolean;
+  userCount?: number;
   lanIp: string;
   port: number;
 }
@@ -65,11 +67,14 @@ export const api = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
       if (res.ok && json.token) {
         this.setToken(json.token);
       }
-      return json;
+      return {
+        success: res.ok && Boolean(json.success),
+        ...json,
+      };
     } catch (err: any) {
       return { success: false, error: err.message };
     }
@@ -622,9 +627,9 @@ export const api = {
         return await res.json();
       }
       const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-      return { success: false, updateAvailable: false, currentVersion: '1.0.2', error: err.error };
+      return { success: false, updateAvailable: false, currentVersion: '1.0.2.2', error: err.error };
     } catch (e: any) {
-      return { success: false, updateAvailable: false, currentVersion: '1.0.2', error: e.message };
+      return { success: false, updateAvailable: false, currentVersion: '1.0.2.2', error: e.message };
     }
   },
 

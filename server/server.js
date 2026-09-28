@@ -153,13 +153,19 @@ function addActivityLog(action, entity, description, user, details) {
 // 1. Server Status
 app.get('/api/status', (req, res) => {
   const state = db.getState();
+  const isConfigured = Boolean(
+    state.householdSettings?.isSetupCompleted ||
+    (state.users && state.users.length > 0)
+  );
   res.json({
     status: 'online',
     mode: 'self-hosted-family-hub',
-    isSetupCompleted: state.householdSettings.isSetupCompleted,
-    householdName: state.householdSettings.householdName || 'BudgetFlow Family Hub',
-    currency: state.householdSettings.currency || 'NOK',
-    currencySymbol: state.householdSettings.currencySymbol || 'kr',
+    isSetupCompleted: isConfigured,
+    householdName: state.householdSettings?.householdName || 'BudgetFlow Family Hub',
+    currency: state.householdSettings?.currency || 'NOK',
+    currencySymbol: state.householdSettings?.currencySymbol || 'kr',
+    hasUsers: Boolean(state.users && state.users.length > 0),
+    userCount: (state.users || []).length,
     lanIp: getLocalIp(),
     port: PORT,
   });
@@ -241,13 +247,30 @@ app.get('/api/calendar/feed.ics', (req, res) => {
 // 2. Initial Setup (First time installation clean slate)
 app.post('/api/setup', (req, res) => {
   const state = db.getState();
-  if (state.householdSettings.isSetupCompleted) {
-    return res.status(400).json({ error: 'Setup is already completed.' });
+
+  // Strict lockdown: Never allow setup if household is already configured or has users/transactions
+  const hasExistingHousehold =
+    Boolean(state.householdSettings?.isSetupCompleted) ||
+    (Array.isArray(state.users) && state.users.length > 0) ||
+    (Array.isArray(state.transactions) && state.transactions.length > 0);
+
+  if (hasExistingHousehold) {
+    return res.status(403).json({
+      error: 'Household setup has already been completed on this Hub. New devices should log in or join as a family member.',
+      isSetupCompleted: true,
+    });
   }
 
   const { householdName, currency, currencySymbol, adminUser, initialWallets } = req.body;
   if (!adminUser || !adminUser.name) {
     return res.status(400).json({ error: 'Admin user details required.' });
+  }
+
+  // Create an automated safety backup snapshot before applying initial setup
+  try {
+    db.createBackup();
+  } catch (err) {
+    console.error('Failed to create pre-setup safety backup:', err);
   }
 
   // Hash Admin pattern
@@ -271,14 +294,22 @@ app.post('/api/setup', (req, res) => {
     },
   };
 
-  const configuredWallets = (initialWallets || []).map((w, i) => ({
-    id: w.id || `wallet_${i + 1}`,
-    name: w.name,
-    type: w.type || 'checking',
-    balance: Number(w.balance) || 0,
-    color: w.color || '#0d9488',
-    isShared: true,
-  }));
+  const configuredWallets = (initialWallets && initialWallets.length > 0)
+    ? initialWallets.map((w, i) => ({
+        id: w.id || `wallet_${i + 1}`,
+        name: w.name,
+        type: w.type || 'checking',
+        balance: Number(w.balance) || 0,
+        color: w.color || '#0d9488',
+        isShared: true,
+      }))
+    : (state.wallets && state.wallets.length > 0)
+    ? state.wallets
+    : [
+        { id: 'wallet_1', name: 'Family Checking', type: 'checking', balance: 0, color: '#0d9488', isShared: true },
+        { id: 'wallet_2', name: 'Emergency Savings', type: 'savings', balance: 0, color: '#0284c7', isShared: true },
+        { id: 'wallet_3', name: 'Cash Wallet', type: 'cash', balance: 0, color: '#10b981', isShared: true },
+      ];
 
   db.setState({
     householdSettings: {
@@ -289,9 +320,9 @@ app.post('/api/setup', (req, res) => {
     },
     users: [newAdmin],
     wallets: configuredWallets,
-    transactions: [],
-    bills: [],
-    goals: [],
+    transactions: state.transactions && state.transactions.length > 0 ? state.transactions : [],
+    bills: state.bills && state.bills.length > 0 ? state.bills : [],
+    goals: state.goals && state.goals.length > 0 ? state.goals : [],
   });
 
   const sessionToken = createSession(newAdmin);
@@ -1390,20 +1421,39 @@ app.post('/api/save-all', authenticate, (req, res) => {
     }));
   }
 
+  // Anti-Wipe Safeguard: Block accidental empty-state wipes when server already has populated collections
+  const allowEmptyWipe = Boolean(req.body && req.body.allowEmptyWipe);
+
   if (Array.isArray(transactions)) {
-    nextState.transactions = transactions;
+    if (transactions.length === 0 && (state.transactions || []).length > 0 && !allowEmptyWipe) {
+      console.warn('[Safety Guard] Blocked attempt to wipe existing transactions with empty array via /api/save-all');
+    } else {
+      nextState.transactions = transactions;
+    }
   }
 
   if (Array.isArray(bills) && (user.role === 'admin' || user.permissions?.canAddBills)) {
-    nextState.bills = bills;
+    if (bills.length === 0 && (state.bills || []).length > 0 && !allowEmptyWipe) {
+      console.warn('[Safety Guard] Blocked attempt to wipe existing bills with empty array via /api/save-all');
+    } else {
+      nextState.bills = bills;
+    }
   }
 
   if (Array.isArray(goals) && (user.role === 'admin' || user.permissions?.canAddGoals)) {
-    nextState.goals = goals;
+    if (goals.length === 0 && (state.goals || []).length > 0 && !allowEmptyWipe) {
+      console.warn('[Safety Guard] Blocked attempt to wipe existing goals with empty array via /api/save-all');
+    } else {
+      nextState.goals = goals;
+    }
   }
 
   if (Array.isArray(wallets) && user.role === 'admin') {
-    nextState.wallets = wallets;
+    if (wallets.length === 0 && (state.wallets || []).length > 0 && !allowEmptyWipe) {
+      console.warn('[Safety Guard] Blocked attempt to wipe existing wallets with empty array via /api/save-all');
+    } else {
+      nextState.wallets = wallets;
+    }
   }
 
   if (householdSettings && typeof householdSettings === 'object' && user.role === 'admin') {
@@ -1411,15 +1461,19 @@ app.post('/api/save-all', authenticate, (req, res) => {
   }
 
   if (Array.isArray(users) && user.role === 'admin') {
-    const mergedUsers = users.map((u) => {
-      const existing = state.users.find((eu) => eu.id === u.id);
-      return {
-        ...u,
-        patternHash: u.patternHash || existing?.patternHash,
-        salt: u.salt || existing?.salt,
-      };
-    });
-    nextState.users = mergedUsers;
+    if (users.length === 0 && (state.users || []).length > 0 && !allowEmptyWipe) {
+      console.warn('[Safety Guard] Blocked attempt to wipe all users with empty array via /api/save-all');
+    } else {
+      const mergedUsers = users.map((u) => {
+        const existing = state.users.find((eu) => eu.id === u.id);
+        return {
+          ...u,
+          patternHash: u.patternHash || existing?.patternHash,
+          salt: u.salt || existing?.salt,
+        };
+      });
+      nextState.users = mergedUsers;
+    }
   }
 
   if (Array.isArray(activityLogs)) {

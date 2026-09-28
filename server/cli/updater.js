@@ -78,10 +78,10 @@ export function getCurrentVersion() {
     const pkgPath = path.join(ROOT_DIR, 'package.json');
     if (fs.existsSync(pkgPath)) {
       const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
-      return pkg.version || '1.0.2.1';
+      return pkg.version || '1.0.2.2';
     }
   } catch (_) {}
-  return '1.0.2.1';
+  return '1.0.2.2';
 }
 
 /**
