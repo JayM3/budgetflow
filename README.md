@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/JayM3/budgetflow/releases/tag/v1.0.2"><img src="https://img.shields.io/badge/release-v1.0.2-06b6d4?logo=github&style=flat-square" alt="GitHub Release v1.0.2"></a>
+  <a href="https://github.com/JayM3/budgetflow/releases/tag/v1.0.2.1"><img src="https://img.shields.io/badge/release-v1.0.2.1-06b6d4?logo=github&style=flat-square" alt="GitHub Release v1.0.2.1"></a>
   <a href="https://jaym3.github.io/budgetflow/"><img src="https://img.shields.io/badge/Live%20Demo-jaym3.github.io%2Fbudgetflow-0891b2?logo=googlechrome&logoColor=white&style=flat-square" alt="Live Web Demo"></a>
   <a href="https://github.com/JayM3/budgetflow"><img src="https://img.shields.io/badge/Architecture-Dual--Mode%20(Static%20%2B%20Hub)-10b981?logo=node.js&logoColor=white&style=flat-square" alt="Dual-Mode Architecture"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" alt="License: MIT"></a>

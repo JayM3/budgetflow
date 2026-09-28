@@ -37,6 +37,7 @@ import {
   Trash2,
   Calendar,
   Smartphone,
+  Tablet,
   ChevronDown,
   Info,
   Clock,
@@ -90,6 +91,7 @@ export const MobileAppLayout: React.FC = () => {
     currentUser,
     setIsUserSelectModalOpen,
     setIsQuickAddOpen,
+    setIsTabletMode,
     theme,
     setTheme,
     isDarkMode,
@@ -251,6 +253,16 @@ export const MobileAppLayout: React.FC = () => {
               {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
             </button>
 
+            {/* Tablet Mode Quick Launcher Button */}
+            <button
+              onClick={() => setIsTabletMode(true)}
+              className="p-2 rounded-xl text-teal-600 dark:text-teal-400 hover:bg-slate-100 dark:hover:bg-[#1A283E] active:scale-90 transition-all"
+              title="Switch to Perpetual Tablet Mode"
+              aria-label="Switch to Tablet Mode"
+            >
+              <Tablet className="w-4 h-4" />
+            </button>
+
             {/* Notifications Bell */}
             <div className="relative">
               <button
@@ -361,7 +373,7 @@ export const MobileAppLayout: React.FC = () => {
             {activeTab === 'home' && (
               <>
                 {/* Greeting & Date */}
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <div>
                     <h2 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
                       {greeting}, {userName} 👋
@@ -370,8 +382,19 @@ export const MobileAppLayout: React.FC = () => {
                       Here's your financial overview for this month.
                     </p>
                   </div>
-                  <div className="px-3 py-1 rounded-full bg-white dark:bg-[#131F33] border border-slate-200/80 dark:border-[#1F304B] text-[11px] font-bold text-slate-700 dark:text-slate-300 shadow-sm">
-                    {preferences.selectedMonth}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      onClick={() => setIsTabletMode(true)}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-teal-500/10 hover:bg-teal-500/20 text-teal-600 dark:text-teal-300 border border-teal-500/25 shadow-xs text-[11px] font-bold active:scale-95 transition-all"
+                      title="Switch to Perpetual Tablet Mode"
+                      aria-label="Switch to Tablet Mode"
+                    >
+                      <Tablet className="w-3.5 h-3.5 text-teal-500 dark:text-teal-400" />
+                      <span>Tablet</span>
+                    </button>
+                    <div className="px-3 py-1 rounded-full bg-white dark:bg-[#131F33] border border-slate-200/80 dark:border-[#1F304B] text-[11px] font-bold text-slate-700 dark:text-slate-300 shadow-sm">
+                      {preferences.selectedMonth}
+                    </div>
                   </div>
                 </div>
 

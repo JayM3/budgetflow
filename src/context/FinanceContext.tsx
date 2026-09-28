@@ -507,9 +507,23 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   });
 
   // --------------------------------------------------------------------------
-  // THEME MANAGEMENT (Light, Dark, System)
+  // THEME MANAGEMENT (Light, Dark, System) - User Scoped
   // --------------------------------------------------------------------------
-  const theme: AppTheme = preferences.theme || 'light';
+  const [theme, setActiveTheme] = useState<AppTheme>(() => {
+    try {
+      const savedUser = localStorage.getItem(LS_PREFIX + 'currentUser');
+      if (savedUser) {
+        const parsedUser = JSON.parse(savedUser);
+        if (parsedUser.theme) return parsedUser.theme;
+        const userTheme = localStorage.getItem(LS_PREFIX + 'user_theme_' + parsedUser.id) as AppTheme;
+        if (userTheme) return userTheme;
+      }
+      const cachedTheme = localStorage.getItem('budgetflow_theme') as AppTheme;
+      return cachedTheme || 'light';
+    } catch {
+      return 'light';
+    }
+  });
 
   const [isSystemDark, setIsSystemDark] = useState<boolean>(() => {
     if (typeof window !== 'undefined' && window.matchMedia) {
@@ -642,7 +656,11 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
             if (remoteData.bills) setBills(remoteData.bills);
             if (remoteData.goals) setGoals(remoteData.goals);
             if (remoteData.activityLogs) setActivityLogs(remoteData.activityLogs);
-            if (remoteData.preferences) setPreferences((prev) => ({ ...prev, ...remoteData.preferences }));
+            if (remoteData.preferences) {
+              const cleanPrefs = { ...remoteData.preferences };
+              delete cleanPrefs.theme;
+              setPreferences((prev) => ({ ...prev, ...cleanPrefs }));
+            }
 
             // Ensure currentUser always has latest role & permissions from server
             const availableUsers = remoteData.allUsers || [];
@@ -660,6 +678,11 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 setCurrentUser(matchedUser);
                 localStorage.setItem(LS_PREFIX + 'currentUser', JSON.stringify(matchedUser));
                 setPreferences((prev) => ({ ...prev, userName: matchedUser.name }));
+                const uTheme = matchedUser.theme || (localStorage.getItem(LS_PREFIX + 'user_theme_' + matchedUser.id) as AppTheme);
+                if (uTheme) {
+                  setActiveTheme(uTheme);
+                  localStorage.setItem('budgetflow_theme', uTheme);
+                }
               }
             }
           }
@@ -682,6 +705,11 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 if (matchedUser) {
                   setCurrentUser(matchedUser);
                   localStorage.setItem(LS_PREFIX + 'currentUser', JSON.stringify(matchedUser));
+                  const uTheme = matchedUser.theme || (localStorage.getItem(LS_PREFIX + 'user_theme_' + matchedUser.id) as AppTheme);
+                  if (uTheme) {
+                    setActiveTheme(uTheme);
+                    localStorage.setItem('budgetflow_theme', uTheme);
+                  }
                 }
               } catch {}
             }
@@ -716,10 +744,16 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 const permsChanged = JSON.stringify(freshUser.permissions) !== JSON.stringify(currentSaved.permissions);
                 const walletsChanged = JSON.stringify(freshUser.allowedWalletIds) !== JSON.stringify(currentSaved.allowedWalletIds);
                 const nameChanged = freshUser.name !== currentSaved.name;
-                if (roleChanged || permsChanged || walletsChanged || nameChanged) {
+                const themeChanged = freshUser.theme && freshUser.theme !== currentSaved.theme;
+                if (roleChanged || permsChanged || walletsChanged || nameChanged || themeChanged) {
                   setCurrentUser(freshUser);
                   localStorage.setItem(LS_PREFIX + 'currentUser', JSON.stringify(freshUser));
                   setPreferences((prev) => ({ ...prev, userName: freshUser.name }));
+                  if (themeChanged) {
+                    setActiveTheme(freshUser.theme);
+                    localStorage.setItem('budgetflow_theme', freshUser.theme);
+                    localStorage.setItem(LS_PREFIX + 'user_theme_' + freshUser.id, freshUser.theme);
+                  }
                 }
               }
             } catch (_) {}
@@ -736,7 +770,11 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
           if (remoteData.goals) setGoals(remoteData.goals);
           if (remoteData.categories) setCategories(remoteData.categories);
           if (remoteData.activityLogs) setActivityLogs(remoteData.activityLogs);
-          if (remoteData.preferences) setPreferences((prev) => ({ ...prev, ...remoteData.preferences }));
+          if (remoteData.preferences) {
+            const cleanPrefs = { ...remoteData.preferences };
+            delete cleanPrefs.theme;
+            setPreferences((prev) => ({ ...prev, ...cleanPrefs }));
+          }
           if (remoteData.householdSettings) setHouseholdSettings(remoteData.householdSettings);
         }
       } catch (err) {
@@ -753,6 +791,9 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         try {
           const parsed = JSON.parse(e.newValue);
           setCurrentUser(parsed);
+          if (parsed.theme) {
+            setActiveTheme(parsed.theme);
+          }
         } catch {}
       } else if (e.key === LS_PREFIX + 'familyUsers' && e.newValue) {
         try {
@@ -878,10 +919,12 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     if (isSelfHosted) {
+      const cleanPrefs = { ...current.preferences };
+      delete cleanPrefs.theme;
       const payload = {
         householdSettings: current.householdSettings,
         users: current.familyUsers,
-        preferences: current.preferences,
+        preferences: cleanPrefs,
         categories: current.categories,
         transactions: current.transactions,
         bills: current.bills,
@@ -1856,17 +1899,41 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setPreferences((prev) => {
       const next = { ...prev, ...updates };
       if (isSelfHosted) {
-        api.updatePreferences(next);
+        const cleanPayload = { ...next };
+        delete cleanPayload.theme;
+        api.updatePreferences(cleanPayload);
       }
       return next;
     });
   };
 
   const setTheme = (newTheme: AppTheme) => {
+    setActiveTheme(newTheme);
     try {
       localStorage.setItem('budgetflow_theme', newTheme);
     } catch (_) {}
-    updatePreferences({ theme: newTheme });
+
+    if (currentUser) {
+      try {
+        localStorage.setItem(LS_PREFIX + 'user_theme_' + currentUser.id, newTheme);
+      } catch (_) {}
+
+      const updatedUser: FamilyUser = { ...currentUser, theme: newTheme };
+      setCurrentUser(updatedUser);
+      try {
+        localStorage.setItem(LS_PREFIX + 'currentUser', JSON.stringify(updatedUser));
+      } catch (_) {}
+
+      setFamilyUsers((prev) =>
+        prev.map((u) => (u.id === currentUser.id ? { ...u, theme: newTheme } : u))
+      );
+
+      if (isSelfHosted) {
+        api.updateUserTheme(currentUser.id, newTheme);
+      }
+    }
+
+    setPreferences((prev) => ({ ...prev, theme: newTheme }));
   };
 
   const previewMobileOnPc = Boolean(preferences.previewMobileOnPc);
@@ -2027,6 +2094,18 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setCurrentUser(latestUser);
     localStorage.setItem(LS_PREFIX + 'currentUser', JSON.stringify(latestUser));
     setPreferences((prev) => ({ ...prev, userName: latestUser.name }));
+
+    // Apply the switched user's theme
+    const userTheme =
+      latestUser.theme ||
+      (localStorage.getItem(LS_PREFIX + 'user_theme_' + latestUser.id) as AppTheme) ||
+      'light';
+    setActiveTheme(userTheme);
+    try {
+      localStorage.setItem('budgetflow_theme', userTheme);
+    } catch (_) {}
+    setPreferences((prev) => ({ ...prev, theme: userTheme }));
+
     setIsUserSelectModalOpen(false);
     if (latestUser.role === 'member' && !['dashboard', 'transactions', 'wallets'].includes(activeView)) {
       setActiveView('dashboard');

@@ -70,6 +70,8 @@ export const TabletKioskView: React.FC = () => {
     triggerConfetti,
     isRefreshing,
     refreshData,
+    currentUser,
+    switchUser,
     isSelfHosted,
   } = useFinance();
 
@@ -286,21 +288,62 @@ export const TabletKioskView: React.FC = () => {
   const [selectedWalletId, setSelectedWalletId] = useState('');
   const [actionSuccessMessage, setActionSuccessMessage] = useState('');
 
+  // --------------------------------------------------------------------------
+  // 6. EXIT TABLET MODE CONFIRMATION MODAL STATE
+  // --------------------------------------------------------------------------
+  const [isExitTabletModalOpen, setIsExitTabletModalOpen] = useState(false);
+  const [exitUser, setExitUser] = useState<FamilyUser | null>(null);
+
+  const handleOpenExitModal = () => {
+    const activeUser = familyUsers.find((u) => u.id === currentUser?.id);
+    if (activeUser) {
+      setExitUser(activeUser);
+    } else if (familyUsers.length === 1) {
+      setExitUser(familyUsers[0]);
+    } else {
+      setExitUser(null);
+    }
+    setIsExitTabletModalOpen(true);
+    resetIdleTimer();
+  };
+
+  const handleCloseExitModal = () => {
+    setIsExitTabletModalOpen(false);
+    setExitUser(null);
+  };
+
+  const handleExitPatternVerified = async (pattern: number[]): Promise<boolean> => {
+    if (!exitUser) return false;
+    if (isSelfHosted) {
+      const res = await api.verifyPattern(exitUser.id, pattern);
+      if (!res.success) return false;
+      if (res.token) api.setToken(res.token);
+    } else if (exitUser.patternSequence && exitUser.patternSequence.length > 0) {
+      const match = comparePatterns(exitUser.patternSequence, pattern);
+      if (!match) return false;
+    }
+    switchUser(exitUser);
+    setIsTabletMode(false);
+    setIsExitTabletModalOpen(false);
+    return true;
+  };
+
   const idleTimerRef = useRef<any>(null);
 
   const resetIdleTimer = () => {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    if (isKioskActionOpen || isViewBalancesOpen) {
+    if (isKioskActionOpen || isViewBalancesOpen || isExitTabletModalOpen) {
       idleTimerRef.current = setTimeout(() => {
         handleCloseKioskAction();
         handleCloseViewBalances();
+        handleCloseExitModal();
       }, 25000);
     }
   };
 
   // Periodic Auto-Refresh for 24/7 Tablet Kiosk (Default: 5 minutes)
   const isKioskBusyRef = useRef(false);
-  isKioskBusyRef.current = isKioskActionOpen || isViewBalancesOpen;
+  isKioskBusyRef.current = isKioskActionOpen || isViewBalancesOpen || isExitTabletModalOpen;
   const pendingReloadRef = useRef(false);
 
   useEffect(() => {
@@ -323,7 +366,7 @@ export const TabletKioskView: React.FC = () => {
   }, [preferences.tabletAutoRefreshEnabled, preferences.tabletRefreshIntervalMinutes, refreshData]);
 
   useEffect(() => {
-    if (!isKioskActionOpen && !isViewBalancesOpen && pendingReloadRef.current) {
+    if (!isKioskActionOpen && !isViewBalancesOpen && !isExitTabletModalOpen && pendingReloadRef.current) {
       const graceTimer = setTimeout(() => {
         if (!isKioskBusyRef.current) {
           pendingReloadRef.current = false;
@@ -332,7 +375,7 @@ export const TabletKioskView: React.FC = () => {
       }, 5000);
       return () => clearTimeout(graceTimer);
     }
-  }, [isKioskActionOpen, isViewBalancesOpen, refreshData]);
+  }, [isKioskActionOpen, isViewBalancesOpen, isExitTabletModalOpen, refreshData]);
 
   const handleOpenLogExpense = () => {
     setIsKioskActionOpen(true);
@@ -624,7 +667,7 @@ export const TabletKioskView: React.FC = () => {
 
           {/* Exit Tablet Mode Button */}
           <button
-            onClick={() => setIsTabletMode(false)}
+            onClick={handleOpenExitModal}
             className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 hover:text-rose-600 dark:text-rose-400 border border-rose-500/20 transition-all flex items-center justify-center active:scale-95"
             title="Exit Tablet Mode"
             aria-label="Exit Tablet Mode"
@@ -1275,6 +1318,85 @@ export const TabletKioskView: React.FC = () => {
                       </button>
                     </div>
                   </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          RESPONSIVE MODAL: EXIT TABLET MODE PATTERN CONFIRMATION
+          ======================================================== */}
+      {isExitTabletModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl max-w-sm sm:max-w-md w-full max-h-[90dvh] flex flex-col p-5 sm:p-6 shadow-2xl border border-slate-100 relative text-slate-800">
+            <button
+              onClick={handleCloseExitModal}
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"
+              title="Cancel"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* STEP 1: Select User if no user selected */}
+            {!exitUser ? (
+              <div className="text-center space-y-4">
+                <div>
+                  <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-2">
+                    <LogOut className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900">Exit Tablet Mode</h3>
+                  <p className="text-xs text-slate-500">Select your profile to enter your pattern</p>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-[260px] overflow-y-auto pr-1">
+                  {familyUsers.map((user) => (
+                    <button
+                      key={user.id}
+                      type="button"
+                      onClick={() => setExitUser(user)}
+                      className="flex flex-col items-center p-3 rounded-2xl border-2 border-slate-100 hover:border-teal-400 hover:bg-teal-50/50 transition-all"
+                    >
+                      <div
+                        className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shadow-xs mb-1"
+                        style={{ backgroundColor: `${user.color}20` }}
+                      >
+                        <span>{user.avatar}</span>
+                      </div>
+                      <span className="font-bold text-slate-800 text-xs">{user.name}</span>
+                      <span className="text-[9px] uppercase font-bold text-slate-400">{user.role}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              /* STEP 2: Draw Pattern */
+              <div className="flex flex-col items-center justify-center text-center">
+                <div className="flex items-center gap-2 mb-3 px-3.5 py-1.5 rounded-full bg-slate-100 text-slate-700 text-xs sm:text-sm font-semibold">
+                  <span className="text-base sm:text-lg">{exitUser.avatar}</span>
+                  <span>{exitUser.name}, draw pattern to exit</span>
+                </div>
+
+                <div className="bg-slate-50/80 backdrop-blur-md p-3 sm:p-4 rounded-3xl border border-slate-200/80 shadow-inner">
+                  <PatternLock
+                    mode="verify"
+                    size={responsivePatternSize}
+                    title="Exit Tablet Mode"
+                    subtitle="Connect at least 4 dots to unlock"
+                    onComplete={handleExitPatternVerified}
+                    onCancel={handleCloseExitModal}
+                  />
+                </div>
+
+                {familyUsers.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setExitUser(null)}
+                    className="mt-3 text-xs text-teal-600 font-semibold hover:underline"
+                  >
+                    Switch Profile
+                  </button>
                 )}
               </div>
             )}

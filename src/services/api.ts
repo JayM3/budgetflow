@@ -556,6 +556,19 @@ export const api = {
     }
   },
 
+  async updateUserTheme(userId: string, theme: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${API_BASE}/api/users/${userId}/theme`, {
+        method: 'PUT',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({ theme }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
   async updatePreferences(preferences: any): Promise<boolean> {
     try {
       const res = await fetch(`${API_BASE}/api/preferences`, {

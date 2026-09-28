@@ -20,6 +20,7 @@ export interface FamilyUser {
   salt?: string;
   allowedWalletIds: string[]; // If empty and admin: all wallets. If member: whitelist.
   permissions: UserPermissions;
+  theme?: AppTheme;
 }
 
 export interface HouseholdSettings {

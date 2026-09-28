@@ -319,6 +319,7 @@ app.get('/api/users', (req, res) => {
     role: u.role,
     avatar: u.avatar,
     color: u.color,
+    theme: u.theme,
     allowedWalletIds: u.allowedWalletIds || [],
     permissions: u.permissions,
     hasPattern: Boolean(u.patternHash),
@@ -620,6 +621,7 @@ app.get('/api/data', optionalAuthenticate, (req, res) => {
       role: u.role,
       avatar: u.avatar,
       color: u.color,
+      theme: u.theme,
       allowedWalletIds: u.allowedWalletIds || [],
       permissions: u.permissions,
       hasPattern: Boolean(u.patternHash),
@@ -1298,6 +1300,29 @@ app.put('/api/admin/users/:id', authenticate, (req, res) => {
   res.json({ success: true, user: finalUser });
 });
 
+// 9b. User: Update Personal Theme Preference
+app.put('/api/users/:id/theme', authenticate, (req, res) => {
+  const { theme } = req.body || {};
+  if (!theme || !['light', 'dark', 'system'].includes(theme)) {
+    return res.status(400).json({ error: 'Valid theme (light, dark, system) required.' });
+  }
+
+  if (req.user && req.user.id !== req.params.id && req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Cannot update theme for another user.' });
+  }
+
+  const state = db.getState();
+  const user = state.users.find((u) => u.id === req.params.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const updatedUsers = state.users.map((u) =>
+    u.id === req.params.id ? { ...u, theme } : u
+  );
+
+  db.setState({ users: updatedUsers, updatedAt: new Date().toISOString() });
+  res.json({ success: true, theme });
+});
+
 // 10. Admin: Delete Family Member
 app.delete('/api/admin/users/:id', authenticate, (req, res) => {
   if (req.user.role !== 'admin') {
@@ -1402,7 +1427,9 @@ app.post('/api/save-all', authenticate, (req, res) => {
   }
 
   if (preferences && typeof preferences === 'object') {
-    nextState.preferences = { ...(state.preferences || {}), ...preferences };
+    const cleanPrefs = { ...preferences };
+    delete cleanPrefs.theme;
+    nextState.preferences = { ...(state.preferences || {}), ...cleanPrefs };
   }
 
   if (merchantRules && typeof merchantRules === 'object') {
@@ -1464,12 +1491,14 @@ app.get('/api/preferences', (req, res) => {
 app.put('/api/preferences', authenticate, (req, res) => {
   const state = db.getState();
   const user = req.user;
-  const updates = req.body || {};
+  const updates = { ...(req.body || {}) };
+  delete updates.theme;
 
   const updatedPreferences = {
     ...(state.preferences || {}),
     ...updates,
   };
+  delete updatedPreferences.theme;
 
   db.setState({
     preferences: updatedPreferences,
