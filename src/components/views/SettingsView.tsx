@@ -49,6 +49,9 @@ export const SettingsView: React.FC = () => {
     isDarkMode,
     previewMobileOnPc,
     setPreviewMobileOnPc,
+    deviceScreen,
+    displayScale,
+    setDisplayScale,
   } = useFinance();
 
   const [importStatus, setImportStatus] = useState<string | null>(null);
@@ -72,7 +75,7 @@ export const SettingsView: React.FC = () => {
       setUpdateInfo({
         success: false,
         updateAvailable: false,
-        currentVersion: '1.0.2.2',
+        currentVersion: '1.0.2.3',
         error: 'Could not contact server to check updates.',
       });
 
@@ -257,6 +260,56 @@ export const SettingsView: React.FC = () => {
             />
           </button>
         </div>
+
+        {/* Display & Screen Resolution Scaling */}
+        <div className="pt-4 border-t border-slate-100 dark:border-[#1F304B] space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-xs sm:text-sm text-slate-800 dark:text-white uppercase tracking-wider">
+                Display & Screen Scaling
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20">
+                {deviceScreen.screenProfileLabel}
+              </span>
+            </div>
+            {deviceScreen.physicalWidth > 0 && (
+              <span className="text-[11px] text-slate-400 font-mono">
+                Hardware: {deviceScreen.physicalHeight}×{deviceScreen.physicalWidth}px ({deviceScreen.dpr.toFixed(1)}x DPR)
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Automatically adapts UI element sizes, charts, and spacing for high-resolution displays (such as 2712×1220).
+          </p>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            {[
+              { id: 'auto', name: 'Auto (Recommended)', desc: 'Detects phone size & DPR' },
+              { id: 'standard', name: 'Standard (100%)', desc: 'Default compact size' },
+              { id: 'comfortable', name: 'Comfortable (112%)', desc: 'Balanced readability' },
+              { id: 'large', name: 'Large (125%)', desc: 'Maximum text size' },
+            ].map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => setDisplayScale(option.id as any)}
+                className={`p-3 rounded-2xl border text-left transition-all active:scale-95 cursor-pointer ${
+                  displayScale === option.id
+                    ? 'border-teal-500 bg-teal-50/50 dark:bg-teal-950/40 text-teal-900 dark:text-teal-300 font-bold shadow-xs'
+                    : 'border-slate-200/80 dark:border-[#1F304B] bg-slate-50/40 dark:bg-[#1A283E]/40 text-slate-600 dark:text-slate-400 hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold text-slate-800 dark:text-white">{option.name}</span>
+                  {displayScale === option.id && (
+                    <span className="w-2 h-2 rounded-full bg-teal-500 shrink-0" />
+                  )}
+                </div>
+                <span className="text-[11px] opacity-80 block leading-tight">{option.desc}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* 2. Profile & Preferences */}
@@ -403,7 +456,7 @@ export const SettingsView: React.FC = () => {
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-[#1A283E] text-slate-700 dark:text-slate-300 font-mono border border-slate-200 dark:border-[#1F304B]">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>v{updateInfo?.currentVersion || '1.0.2.2'}</span>
+              <span>v{updateInfo?.currentVersion || '1.0.2.3'}</span>
             </span>
           </div>
         </div>

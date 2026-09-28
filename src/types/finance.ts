@@ -125,6 +125,8 @@ export interface Insight {
 
 export type AppTheme = 'light' | 'dark' | 'system';
 
+export type DisplayScalePreference = 'auto' | 'standard' | 'comfortable' | 'large';
+
 export interface UserPreferences {
   userName: string;
   currency: string;
@@ -134,6 +136,7 @@ export interface UserPreferences {
   previewMobileOnPc?: boolean;
   tabletAutoRefreshEnabled?: boolean;
   tabletRefreshIntervalMinutes?: number;
+  displayScale?: DisplayScalePreference;
 }
 
 export type GuideId = 

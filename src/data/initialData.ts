@@ -31,6 +31,7 @@ export const initialPreferences: UserPreferences = {
   previewMobileOnPc: false,
   tabletAutoRefreshEnabled: true,
   tabletRefreshIntervalMinutes: 5,
+  displayScale: 'auto',
 };
 
 export const initialCategories: BudgetCategory[] = [
@@ -113,6 +114,7 @@ export const demoPreferences: UserPreferences = {
   previewMobileOnPc: false,
   tabletAutoRefreshEnabled: true,
   tabletRefreshIntervalMinutes: 5,
+  displayScale: 'auto',
 };
 
 export const demoCategories: BudgetCategory[] = [

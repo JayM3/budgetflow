@@ -13,7 +13,9 @@ import {
   HouseholdSettings,
   GuideId,
   ActivityLog,
+  DisplayScalePreference,
 } from '../types/finance';
+import { detectDeviceScreen, DeviceScreenInfo } from '../utils/deviceDetector';
 import {
   initialCategories,
   initialTransactions,
@@ -97,6 +99,9 @@ interface FinanceContextType {
   isPhone: boolean;
   previewMobileOnPc: boolean;
   setPreviewMobileOnPc: (val: boolean) => void;
+  deviceScreen: DeviceScreenInfo;
+  displayScale: DisplayScalePreference;
+  setDisplayScale: (scale: DisplayScalePreference) => void;
 
   // Household & Multi-User State
   householdSettings: HouseholdSettings;
@@ -554,44 +559,55 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [isDarkMode]);
 
   // --------------------------------------------------------------------------
-  // DEVICE DETECTION (Phone & Tablet vs PC Browser)
+  // DEVICE DETECTION & SCREEN RESOLUTION ENGINE
   // --------------------------------------------------------------------------
-  const [deviceInfo, setDeviceInfo] = useState(() => {
-    if (typeof window === 'undefined') {
-      return { isMobileOrTablet: false, isPhone: false };
+  const [deviceScreen, setDeviceScreen] = useState<DeviceScreenInfo>(() => detectDeviceScreen());
+
+  const [displayScale, setDisplayScaleState] = useState<DisplayScalePreference>(() => {
+    try {
+      const savedPref = localStorage.getItem(LS_PREFIX + 'displayScale');
+      if (savedPref && ['auto', 'standard', 'comfortable', 'large'].includes(savedPref)) {
+        return savedPref as DisplayScalePreference;
+      }
+      return 'auto';
+    } catch {
+      return 'auto';
     }
-    const ua = navigator.userAgent || '';
-    const isMobileUA =
-      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua) ||
-      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    const isCoarsePointer = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-    const width = window.innerWidth;
-
-    const isMobileOrTablet = Boolean(isMobileUA || (isCoarsePointer && width <= 1024));
-    const isPhone = Boolean(width < 640 || /iPhone|iPod|Android.*Mobile/i.test(ua));
-
-    return { isMobileOrTablet, isPhone };
   });
+
+  const setDisplayScale = (scale: DisplayScalePreference) => {
+    setDisplayScaleState(scale);
+    try {
+      localStorage.setItem(LS_PREFIX + 'displayScale', scale);
+      setPreferences((prev) => ({ ...prev, displayScale: scale }));
+    } catch (err) {
+      console.error('Failed to save displayScale preference:', err);
+    }
+  };
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const handleResize = () => {
-      const ua = navigator.userAgent || '';
-      const isMobileUA =
-        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua) ||
-        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-      const isCoarsePointer = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-      const width = window.innerWidth;
-
-      const isMobileOrTablet = Boolean(isMobileUA || (isCoarsePointer && width <= 1024));
-      const isPhone = Boolean(width < 640 || /iPhone|iPod|Android.*Mobile/i.test(ua));
-
-      setDeviceInfo({ isMobileOrTablet, isPhone });
+    const handleScreenResize = () => {
+      setDeviceScreen(detectDeviceScreen());
     };
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener('resize', handleScreenResize);
+    window.addEventListener('orientationchange', handleScreenResize);
+    return () => {
+      window.removeEventListener('resize', handleScreenResize);
+      window.removeEventListener('orientationchange', handleScreenResize);
+    };
   }, []);
+
+  const deviceInfo = useMemo(() => {
+    const isMobileOrTablet = Boolean(
+      deviceScreen.isMobileUA ||
+      (deviceScreen.isTouch && deviceScreen.viewportWidth <= 1024) ||
+      deviceScreen.isPhone
+    );
+    const isPhone = deviceScreen.isPhone;
+    return { isMobileOrTablet, isPhone };
+  }, [deviceScreen]);
 
   const categoryDebounceTimers = useRef<{ [key: string]: ReturnType<typeof setTimeout> }>({});
   const lastServerUpdateRef = useRef<string>('');
@@ -2284,6 +2300,9 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         isPhone: deviceInfo.isPhone,
         previewMobileOnPc,
         setPreviewMobileOnPc,
+        deviceScreen,
+        displayScale,
+        setDisplayScale,
         householdSettings,
         familyUsers,
         currentUser,

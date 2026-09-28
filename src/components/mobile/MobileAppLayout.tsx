@@ -100,10 +100,24 @@ export const MobileAppLayout: React.FC = () => {
     deleteTransaction,
     contributeToGoal,
     updateCategoryAllocation,
+    deviceScreen,
+    displayScale,
   } = useFinance();
 
   const [activeTab, setActiveTab] = useState<MobileTab>('home');
   const [subView, setSubView] = useState<MobileSubView>(null);
+
+  // Dynamic scaling based on detected screen resolution (e.g. 2712x1220) and user preference
+  const isSpacious = useMemo(() => {
+    if (displayScale === 'large' || displayScale === 'comfortable') return true;
+    if (displayScale === 'standard') return false;
+    return Boolean(
+      deviceScreen?.isHighResPhone ||
+      deviceScreen?.isTallPhone ||
+      deviceScreen?.isSpaciousHeight ||
+      (deviceScreen?.viewportHeight && deviceScreen.viewportHeight >= 820)
+    );
+  }, [displayScale, deviceScreen]);
 
   // Home & Global Search
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -178,16 +192,17 @@ export const MobileAppLayout: React.FC = () => {
     });
   }, [transactions, txTypeFilter, txCategoryFilter, txSearchQuery]);
 
-  // Recent 5 transactions for Home Tab
+  // Recent transactions: show 7 on tall/spacious phones (e.g. 2712x1220) to eliminate empty dead space, 5 on compact
   const recentTransactions = useMemo(() => {
+    const limit = isSpacious ? 7 : 5;
     return [...transactions]
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 5);
-  }, [transactions]);
+      .slice(0, limit);
+  }, [transactions, isSpacious]);
 
-  // SVG Donut Math (Size 120)
-  const donutSize = 120;
-  const strokeWidth = 13;
+  // Adaptive SVG Donut Math (144px on spacious/high-res phones, 122px on compact phones)
+  const donutSize = isSpacious ? 144 : 122;
+  const strokeWidth = isSpacious ? 15 : 13;
   const donutRadius = (donutSize - strokeWidth) / 2;
   const circumference = 2 * Math.PI * donutRadius;
   const strokeDashoffset = circumference - (spentPercentage / 100) * circumference;
@@ -209,7 +224,7 @@ export const MobileAppLayout: React.FC = () => {
     >
       {/* PC Preview Mode Banner (Allows PC users to easily exit preview) */}
       {previewMobileOnPc && (
-        <div className="sticky top-0 z-50 bg-teal-600 text-white px-3.5 py-1.5 flex items-center justify-between text-[11px] font-semibold shadow-md">
+        <div className="sticky top-0 z-50 bg-teal-600 text-white px-3.5 py-1.5 flex items-center justify-between text-xs font-bold shadow-md">
           <div className="flex items-center gap-1.5">
             <Smartphone className="w-3.5 h-3.5" />
             <span>PC Mobile Preview Active</span>
@@ -286,15 +301,15 @@ export const MobileAppLayout: React.FC = () => {
                       <X className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                  <div className="p-2 rounded-xl bg-teal-50/70 dark:bg-teal-950/40 text-teal-800 dark:text-teal-200">
-                    <p className="font-semibold text-[11px]">Safe-to-Spend on Track</p>
-                    <p className="text-[10px] text-teal-600 dark:text-teal-400 mt-0.5">
+                  <div className="p-2.5 rounded-xl bg-teal-50/70 dark:bg-teal-950/40 text-teal-800 dark:text-teal-200">
+                    <p className="font-bold text-xs">Safe-to-Spend on Track</p>
+                    <p className="text-xs text-teal-600 dark:text-teal-400 mt-0.5">
                       You are pacing at {spentPercentage}% of monthly envelope limits.
                     </p>
                   </div>
-                  <div className="p-2 rounded-xl bg-cyan-50/70 dark:bg-cyan-950/40 text-cyan-800 dark:text-cyan-200">
-                    <p className="font-semibold text-[11px]">Savings Rate Healthy</p>
-                    <p className="text-[10px] text-cyan-600 dark:text-cyan-400 mt-0.5">
+                  <div className="p-2.5 rounded-xl bg-cyan-50/70 dark:bg-cyan-950/40 text-cyan-800 dark:text-cyan-200">
+                    <p className="font-bold text-xs">Savings Rate Healthy</p>
+                    <p className="text-xs text-cyan-600 dark:text-cyan-400 mt-0.5">
                       Household savings rate is currently {savingsRate}%.
                     </p>
                   </div>
@@ -343,7 +358,7 @@ export const MobileAppLayout: React.FC = () => {
       {/* ---------------------------------------------------------------------- */}
       {/* 2. MAIN SCROLLABLE CONTENT BODY                                        */}
       {/* ---------------------------------------------------------------------- */}
-      <main className="px-4 py-4 pb-28 space-y-5">
+      <main className={`px-4 py-4 pb-28 ${isSpacious ? 'space-y-6' : 'space-y-4'}`}>
         {/* Render Subview if selected from "More" tab */}
         {subView ? (
           <div className="space-y-4">
@@ -375,40 +390,40 @@ export const MobileAppLayout: React.FC = () => {
                 {/* Greeting & Date */}
                 <div className="flex items-center justify-between gap-2">
                   <div>
-                    <h2 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                    <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
                       {greeting}, {userName} 👋
                     </h2>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
                       Here's your financial overview for this month.
                     </p>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <button
                       onClick={() => setIsTabletMode(true)}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-teal-500/10 hover:bg-teal-500/20 text-teal-600 dark:text-teal-300 border border-teal-500/25 shadow-xs text-[11px] font-bold active:scale-95 transition-all"
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-teal-500/10 hover:bg-teal-500/20 text-teal-600 dark:text-teal-300 border border-teal-500/25 shadow-xs text-xs font-bold active:scale-95 transition-all"
                       title="Switch to Perpetual Tablet Mode"
                       aria-label="Switch to Tablet Mode"
                     >
                       <Tablet className="w-3.5 h-3.5 text-teal-500 dark:text-teal-400" />
                       <span>Tablet</span>
                     </button>
-                    <div className="px-3 py-1 rounded-full bg-white dark:bg-[#131F33] border border-slate-200/80 dark:border-[#1F304B] text-[11px] font-bold text-slate-700 dark:text-slate-300 shadow-sm">
+                    <div className="px-3 py-1 rounded-full bg-white dark:bg-[#131F33] border border-slate-200/80 dark:border-[#1F304B] text-xs font-bold text-slate-700 dark:text-slate-300 shadow-sm">
                       {preferences.selectedMonth}
                     </div>
                   </div>
                 </div>
 
                 {/* This Month's Budget Donut Card (Matching Screenshot Screen 1) */}
-                <div className="bg-white dark:bg-[#131F33] rounded-3xl p-5 border border-slate-100 dark:border-[#1F304B] shadow-card transition-colors">
+                <div className={`bg-white dark:bg-[#131F33] rounded-3xl ${isSpacious ? 'p-6' : 'p-5'} border border-slate-100 dark:border-[#1F304B] shadow-card transition-colors`}>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-bold text-sm text-slate-800 dark:text-white">This Month's Budget</h3>
-                    <span className="text-[11px] font-semibold text-teal-600 dark:text-teal-400">
+                    <h3 className="font-bold text-sm sm:text-base text-slate-800 dark:text-white">This Month's Budget</h3>
+                    <span className="text-xs sm:text-sm font-bold text-teal-600 dark:text-teal-400">
                       {spentPercentage}% spent
                     </span>
                   </div>
 
                   <div className="flex items-center justify-around gap-4 py-1">
-                    {/* Compact SVG Donut */}
+                    {/* Compact / Spacious SVG Donut */}
                     <div className="relative flex items-center justify-center shrink-0">
                       <svg width={donutSize} height={donutSize} className="rotate-[-90deg]">
                         <circle
@@ -434,38 +449,38 @@ export const MobileAppLayout: React.FC = () => {
                       </svg>
                       {/* Center percentage */}
                       <div className="absolute text-center">
-                        <span className="text-lg font-black text-slate-900 dark:text-white tracking-tight">
+                        <span className={`${isSpacious ? 'text-2xl sm:text-3xl' : 'text-xl sm:text-2xl'} font-black text-slate-900 dark:text-white tracking-tight`}>
                           {spentPercentage}%
                         </span>
-                        <span className="block text-[9px] font-semibold text-slate-400 dark:text-slate-500 uppercase">
+                        <span className="block text-[11px] sm:text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mt-0.5">
                           Spent
                         </span>
                       </div>
                     </div>
 
                     {/* Legend */}
-                    <div className="space-y-3 shrink-0">
+                    <div className="space-y-3.5 shrink-0">
                       <div>
-                        <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                        <div className="flex items-center gap-1.5 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
                           <span className="w-2.5 h-2.5 rounded-full bg-teal-500" />
                           <span>Total Spent</span>
                         </div>
-                        <span className="text-base font-extrabold text-slate-900 dark:text-white ml-4 block mt-0.5">
+                        <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white ml-4 block mt-0.5">
                           {formatCurrency(totalSpent, preferences.currency)}
                         </span>
                       </div>
 
                       <div>
-                        <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                        <div className="flex items-center gap-1.5 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
                           <span className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-[#1E2D44]" />
                           <span>Remaining</span>
                         </div>
-                        <span className="text-base font-extrabold text-teal-600 dark:text-teal-400 ml-4 block mt-0.5">
+                        <span className="text-base sm:text-lg font-black text-teal-600 dark:text-teal-400 ml-4 block mt-0.5">
                           {formatCurrency(remainingBudget, preferences.currency)}
                         </span>
                       </div>
 
-                      <div className="text-[10px] text-slate-400 dark:text-slate-500 pt-1 border-t border-slate-100 dark:border-[#1F304B]">
+                      <div className="text-xs text-slate-400 dark:text-slate-500 pt-1.5 border-t border-slate-100 dark:border-[#1F304B]">
                         Cap: {formatCurrency(totalBudget, preferences.currency)}
                       </div>
                     </div>
@@ -473,75 +488,75 @@ export const MobileAppLayout: React.FC = () => {
                 </div>
 
                 {/* 2x2 Metric Cards Grid (Matching Screenshot Screen 1) */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className={`grid grid-cols-2 ${isSpacious ? 'gap-3.5' : 'gap-3'}`}>
                   {/* Total Balance */}
-                  <div className="bg-white dark:bg-[#131F33] rounded-2xl p-4 border border-slate-100 dark:border-[#1F304B] shadow-card transition-colors">
+                  <div className={`bg-white dark:bg-[#131F33] rounded-2xl ${isSpacious ? 'p-4 sm:p-5' : 'p-3.5 sm:p-4'} border border-slate-100 dark:border-[#1F304B] shadow-card transition-colors`}>
                     <div className="flex items-center justify-between mb-2">
                       <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
                         <WalletIcon className="w-4 h-4" />
                       </div>
-                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
                         +3.2%
                       </span>
                     </div>
-                    <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-400 block">
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block">
                       Total Balance
                     </span>
-                    <span className="text-sm font-extrabold text-slate-900 dark:text-white tracking-tight mt-0.5 block truncate">
+                    <span className={`${isSpacious ? 'text-base sm:text-lg' : 'text-sm sm:text-base'} font-black text-slate-900 dark:text-white tracking-tight mt-0.5 block truncate`}>
                       {formatCurrency(totalBalance, preferences.currency)}
                     </span>
                   </div>
 
                   {/* Monthly Income */}
-                  <div className="bg-white dark:bg-[#131F33] rounded-2xl p-4 border border-slate-100 dark:border-[#1F304B] shadow-card transition-colors">
+                  <div className={`bg-white dark:bg-[#131F33] rounded-2xl ${isSpacious ? 'p-4 sm:p-5' : 'p-3.5 sm:p-4'} border border-slate-100 dark:border-[#1F304B] shadow-card transition-colors`}>
                     <div className="flex items-center justify-between mb-2">
                       <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
                         <ArrowDownLeft className="w-4 h-4" />
                       </div>
-                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
                         +12.0%
                       </span>
                     </div>
-                    <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-400 block">
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block">
                       Monthly Income
                     </span>
-                    <span className="text-sm font-extrabold text-slate-900 dark:text-white tracking-tight mt-0.5 block truncate">
+                    <span className={`${isSpacious ? 'text-base sm:text-lg' : 'text-sm sm:text-base'} font-black text-slate-900 dark:text-white tracking-tight mt-0.5 block truncate`}>
                       {formatCurrency(totalIncome, preferences.currency)}
                     </span>
                   </div>
 
                   {/* Monthly Expenses */}
-                  <div className="bg-white dark:bg-[#131F33] rounded-2xl p-4 border border-slate-100 dark:border-[#1F304B] shadow-card transition-colors">
+                  <div className={`bg-white dark:bg-[#131F33] rounded-2xl ${isSpacious ? 'p-4 sm:p-5' : 'p-3.5 sm:p-4'} border border-slate-100 dark:border-[#1F304B] shadow-card transition-colors`}>
                     <div className="flex items-center justify-between mb-2">
                       <div className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center">
                         <ArrowUpRight className="w-4 h-4" />
                       </div>
-                      <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400">
+                      <span className="text-xs font-bold text-rose-600 dark:text-rose-400">
                         -4.5%
                       </span>
                     </div>
-                    <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-400 block">
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block">
                       Monthly Expenses
                     </span>
-                    <span className="text-sm font-extrabold text-slate-900 dark:text-white tracking-tight mt-0.5 block truncate">
+                    <span className={`${isSpacious ? 'text-base sm:text-lg' : 'text-sm sm:text-base'} font-black text-slate-900 dark:text-white tracking-tight mt-0.5 block truncate`}>
                       {formatCurrency(totalSpent, preferences.currency)}
                     </span>
                   </div>
 
                   {/* Net Savings */}
-                  <div className="bg-white dark:bg-[#131F33] rounded-2xl p-4 border border-slate-100 dark:border-[#1F304B] shadow-card transition-colors">
+                  <div className={`bg-white dark:bg-[#131F33] rounded-2xl ${isSpacious ? 'p-4 sm:p-5' : 'p-3.5 sm:p-4'} border border-slate-100 dark:border-[#1F304B] shadow-card transition-colors`}>
                     <div className="flex items-center justify-between mb-2">
                       <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center">
                         <Sparkles className="w-4 h-4" />
                       </div>
-                      <span className="text-[10px] font-bold text-teal-600 dark:text-teal-400">
+                      <span className="text-xs font-bold text-teal-600 dark:text-teal-400">
                         {savingsRate}% saved
                       </span>
                     </div>
-                    <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-400 block">
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block">
                       Net Savings
                     </span>
-                    <span className="text-sm font-extrabold text-slate-900 dark:text-white tracking-tight mt-0.5 block truncate">
+                    <span className={`${isSpacious ? 'text-base sm:text-lg' : 'text-sm sm:text-base'} font-black text-slate-900 dark:text-white tracking-tight mt-0.5 block truncate`}>
                       {formatCurrency(Math.max(0, totalIncome - totalSpent), preferences.currency)}
                     </span>
                   </div>
@@ -551,7 +566,7 @@ export const MobileAppLayout: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setIsQuickAddOpen(true)}
-                    className="flex-1 py-3 px-4 rounded-2xl bg-gradient-to-r from-teal-600 via-cyan-600 to-sky-600 hover:from-teal-700 hover:to-sky-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-cyan-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    className={`flex-1 ${isSpacious ? 'py-3.5 px-5 text-sm' : 'py-3 px-4 text-xs'} rounded-2xl bg-gradient-to-r from-teal-600 via-cyan-600 to-sky-600 hover:from-teal-700 hover:to-sky-700 active:scale-95 text-white font-bold shadow-md shadow-cyan-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer`}
                   >
                     <Plus className="w-4 h-4" />
                     <span>Log New Expense / Income</span>
@@ -559,12 +574,12 @@ export const MobileAppLayout: React.FC = () => {
                 </div>
 
                 {/* Recent Transactions Section (Matching Screenshot Screen 1) */}
-                <div className="bg-white dark:bg-[#131F33] rounded-3xl p-5 border border-slate-100 dark:border-[#1F304B] shadow-card transition-colors">
+                <div className={`bg-white dark:bg-[#131F33] rounded-3xl ${isSpacious ? 'p-6' : 'p-5'} border border-slate-100 dark:border-[#1F304B] shadow-card transition-colors`}>
                   <div className="flex items-center justify-between mb-3.5">
-                    <h3 className="font-bold text-sm text-slate-800 dark:text-white">Recent Transactions</h3>
+                    <h3 className="font-bold text-sm sm:text-base text-slate-800 dark:text-white">Recent Transactions</h3>
                     <button
                       onClick={() => handleTabChange('transactions')}
-                      className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline cursor-pointer"
+                      className="text-xs sm:text-sm font-semibold text-teal-600 dark:text-teal-400 hover:underline cursor-pointer"
                     >
                       See all
                     </button>
@@ -589,17 +604,17 @@ export const MobileAppLayout: React.FC = () => {
                               <IconComponent className="w-5 h-5" />
                             </div>
                             <div>
-                              <h4 className="font-bold text-xs text-slate-900 dark:text-white">
+                              <h4 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white">
                                 {tx.merchant}
                               </h4>
-                              <p className="text-[10px] text-slate-400 dark:text-slate-400 mt-0.5">
+                              <p className="text-xs text-slate-400 dark:text-slate-400 mt-0.5">
                                 {tx.category} • {formatDateDisplay(tx.date)}
                               </p>
                             </div>
                           </div>
 
                           <span
-                            className={`font-black text-xs shrink-0 ${
+                            className={`font-black text-xs sm:text-sm shrink-0 ${
                               isIncome
                                 ? 'text-emerald-600 dark:text-emerald-400'
                                 : 'text-slate-900 dark:text-white'
@@ -624,14 +639,14 @@ export const MobileAppLayout: React.FC = () => {
                 {goals.length > 0 && (
                   <div
                     onClick={() => handleTabChange('goals')}
-                    className="bg-gradient-to-r from-teal-900/40 via-cyan-950/40 to-slate-900 p-4 rounded-3xl border border-teal-500/20 text-white cursor-pointer active:scale-98 transition-all"
+                    className="bg-gradient-to-r from-teal-900/40 via-cyan-950/40 to-slate-900 p-4 sm:p-5 rounded-3xl border border-teal-500/20 text-white cursor-pointer active:scale-98 transition-all"
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <Target className="w-4 h-4 text-teal-400" />
-                        <span className="text-xs font-bold text-white">Savings Goal: {goals[0].name}</span>
+                        <span className="text-xs sm:text-sm font-bold text-white">Savings Goal: {goals[0].name}</span>
                       </div>
-                      <span className="text-xs font-extrabold text-teal-300">
+                      <span className="text-xs sm:text-sm font-extrabold text-teal-300">
                         {Math.round((goals[0].currentAmount / (goals[0].targetAmount || 1)) * 100)}%
                       </span>
                     </div>
@@ -643,7 +658,7 @@ export const MobileAppLayout: React.FC = () => {
                         }}
                       />
                     </div>
-                    <div className="flex items-center justify-between text-[10px] text-teal-200/80 mt-2">
+                    <div className="flex items-center justify-between text-xs text-teal-200/80 mt-2">
                       <span>{formatCurrency(goals[0].currentAmount, preferences.currency)} saved</span>
                       <span>Target: {formatCurrency(goals[0].targetAmount, preferences.currency)}</span>
                     </div>
@@ -706,23 +721,23 @@ export const MobileAppLayout: React.FC = () => {
                           setSelectedCategory(cat);
                           setEditAllocationAmount(cat.allocated.toString());
                         }}
-                        className="p-3 flex items-center justify-between gap-3 hover:bg-slate-50/60 dark:hover:bg-[#1A283E]/50 rounded-2xl transition-colors cursor-pointer active:scale-98"
+                        className="p-3 sm:p-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/60 dark:hover:bg-[#1A283E]/50 rounded-2xl transition-colors cursor-pointer active:scale-98"
                       >
                         {/* Circular colored category icon */}
                         <div className="flex items-center gap-3 min-w-0">
                           <div
-                            className="w-11 h-11 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-sm"
+                            className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-sm"
                             style={{ backgroundColor: cat.color || '#0D9488' }}
                           >
                             <IconComponent className="w-5 h-5" />
                           </div>
 
                           <div className="min-w-0">
-                            <h4 className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                            <h4 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate">
                               {cat.name}
                             </h4>
                             <div className="flex items-center gap-2 mt-1">
-                              <div className="w-24 h-1.5 rounded-full bg-slate-100 dark:bg-[#1A283E] overflow-hidden">
+                              <div className="w-24 sm:w-28 h-2 rounded-full bg-slate-100 dark:bg-[#1A283E] overflow-hidden">
                                 <div
                                   className={`h-full rounded-full transition-all duration-500 ${
                                     isOverBudget ? 'bg-rose-500' : 'bg-teal-500'
@@ -733,10 +748,10 @@ export const MobileAppLayout: React.FC = () => {
                                 />
                               </div>
                               <span
-                                className={`text-[10px] font-bold ${
+                                className={`text-xs font-bold ${
                                   isOverBudget
                                     ? 'text-rose-500'
-                                    : 'text-slate-400 dark:text-slate-400'
+                                    : 'text-slate-500 dark:text-slate-400'
                                 }`}
                               >
                                 {cat.percent}%
@@ -748,10 +763,10 @@ export const MobileAppLayout: React.FC = () => {
                         {/* Amount & Right Chevron Arrow */}
                         <div className="flex items-center gap-2 shrink-0">
                           <div className="text-right">
-                            <span className="font-extrabold text-xs text-slate-900 dark:text-white block">
+                            <span className="font-black text-xs sm:text-sm text-slate-900 dark:text-white block">
                               {formatCurrency(cat.spent, preferences.currency)}
                             </span>
-                            <span className="text-[10px] text-slate-400 dark:text-slate-400 block">
+                            <span className="text-xs text-slate-400 dark:text-slate-400 block">
                               of {formatCurrency(cat.allocated, preferences.currency)}
                             </span>
                           </div>
@@ -762,14 +777,14 @@ export const MobileAppLayout: React.FC = () => {
                   })}
 
                   {filteredBudgetCategories.length === 0 && (
-                    <div className="text-center py-8 text-xs text-slate-400">
+                    <div className="text-center py-8 text-xs sm:text-sm text-slate-400">
                       No categories match "{budgetCategorySearch}".
                     </div>
                   )}
                 </div>
 
                 {/* Helpful rebalance note */}
-                <p className="text-[11px] text-slate-400 dark:text-slate-500 text-center italic">
+                <p className="text-xs text-slate-400 dark:text-slate-500 text-center italic">
                   Tap any category row to adjust its envelope allocation or rebalance funds.
                 </p>
               </div>
@@ -858,10 +873,10 @@ export const MobileAppLayout: React.FC = () => {
                             <IconComponent className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
-                            <h4 className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                            <h4 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate">
                               {tx.merchant}
                             </h4>
-                            <p className="text-[10px] text-slate-400 dark:text-slate-400 mt-0.5">
+                            <p className="text-xs text-slate-400 dark:text-slate-400 mt-0.5">
                               {tx.category} • {formatDateDisplay(tx.date)}
                             </p>
                           </div>
@@ -869,7 +884,7 @@ export const MobileAppLayout: React.FC = () => {
 
                         <div className="flex items-center gap-3 shrink-0">
                           <span
-                            className={`font-black text-xs ${
+                            className={`font-black text-xs sm:text-sm ${
                               isIncome
                                 ? 'text-emerald-600 dark:text-emerald-400'
                                 : 'text-slate-900 dark:text-white'
@@ -896,7 +911,7 @@ export const MobileAppLayout: React.FC = () => {
                   })}
 
                   {filteredTransactions.length === 0 && (
-                    <div className="text-center py-10 text-xs text-slate-400">
+                    <div className="text-center py-10 text-xs sm:text-sm text-slate-400">
                       No transactions match the selected filters.
                     </div>
                   )}
@@ -941,16 +956,16 @@ export const MobileAppLayout: React.FC = () => {
                               <Target className="w-5 h-5" />
                             </div>
                             <div>
-                              <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+                              <h4 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
                                 {goal.name}
                               </h4>
-                              <p className="text-[10px] text-slate-400 dark:text-slate-400">
+                              <p className="text-xs text-slate-400 dark:text-slate-400 mt-0.5">
                                 Target Date: {formatDateDisplay(goal.targetDate)}
                               </p>
                             </div>
                           </div>
 
-                          <span className="font-black text-sm text-teal-600 dark:text-teal-400">
+                          <span className="font-black text-sm sm:text-base text-teal-600 dark:text-teal-400">
                             {percent}%
                           </span>
                         </div>
@@ -967,7 +982,7 @@ export const MobileAppLayout: React.FC = () => {
                         </div>
 
                         {/* Financial Stats */}
-                        <div className="flex items-center justify-between text-xs pt-1">
+                        <div className="flex items-center justify-between text-xs sm:text-sm pt-1">
                           <span className="font-semibold text-slate-500 dark:text-slate-400">
                             Saved:{' '}
                             <strong className="text-slate-900 dark:text-white">
@@ -985,9 +1000,9 @@ export const MobileAppLayout: React.FC = () => {
                             setSelectedGoalId(goal.id);
                             setContributeAmount('50');
                           }}
-                          className="w-full py-2 px-3 rounded-xl bg-teal-50 dark:bg-teal-950/60 hover:bg-teal-100 dark:hover:bg-teal-900/40 text-teal-700 dark:text-teal-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-95"
+                          className="w-full py-2.5 px-3 rounded-xl bg-teal-50 dark:bg-teal-950/60 hover:bg-teal-100 dark:hover:bg-teal-900/40 text-teal-700 dark:text-teal-300 font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-95"
                         >
-                          <Plus className="w-3.5 h-3.5" />
+                          <Plus className="w-4 h-4" />
                           <span>Quick Contribute</span>
                         </button>
                       </div>
@@ -1017,8 +1032,8 @@ export const MobileAppLayout: React.FC = () => {
                       {currentUser?.avatar || userName.slice(0, 1).toUpperCase()}
                     </div>
                     <div>
-                      <h3 className="font-bold text-sm text-slate-900 dark:text-white">{userName}</h3>
-                      <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-teal-100 dark:bg-teal-950/80 text-teal-800 dark:text-teal-300">
+                      <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">{userName}</h3>
+                      <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold uppercase bg-teal-100 dark:bg-teal-950/80 text-teal-800 dark:text-teal-300">
                         {currentUser?.role || 'Admin'}
                       </span>
                     </div>
@@ -1026,7 +1041,7 @@ export const MobileAppLayout: React.FC = () => {
 
                   <button
                     onClick={() => setIsUserSelectModalOpen(true)}
-                    className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-[#1F304B] text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#1A283E] active:scale-95 transition-all"
+                    className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-[#1F304B] text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#1A283E] active:scale-95 transition-all"
                   >
                     Switch User
                   </button>
@@ -1035,10 +1050,10 @@ export const MobileAppLayout: React.FC = () => {
                 {/* Appearance & Dark Mode Selection */}
                 <div className="bg-white dark:bg-[#131F33] rounded-3xl p-5 border border-slate-100 dark:border-[#1F304B] shadow-card space-y-3 transition-colors">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs text-slate-800 dark:text-white uppercase tracking-wider">
+                    <span className="font-bold text-xs sm:text-sm text-slate-800 dark:text-white uppercase tracking-wider">
                       Appearance & Theme
                     </span>
-                    <span className="text-[11px] font-bold text-teal-600 dark:text-teal-400 capitalize">
+                    <span className="text-xs font-bold text-teal-600 dark:text-teal-400 capitalize">
                       {theme}
                     </span>
                   </div>
@@ -1053,7 +1068,7 @@ export const MobileAppLayout: React.FC = () => {
                       }`}
                     >
                       <Sun className="w-4 h-4 mx-auto mb-1 text-amber-500" />
-                      <span className="text-xs">Light</span>
+                      <span className="text-xs sm:text-sm font-semibold">Light</span>
                     </button>
 
                     <button
@@ -1065,7 +1080,7 @@ export const MobileAppLayout: React.FC = () => {
                       }`}
                     >
                       <Moon className="w-4 h-4 mx-auto mb-1 text-teal-400" />
-                      <span className="text-xs">Dark</span>
+                      <span className="text-xs sm:text-sm font-semibold">Dark</span>
                     </button>
 
                     <button
@@ -1077,7 +1092,7 @@ export const MobileAppLayout: React.FC = () => {
                       }`}
                     >
                       <Monitor className="w-4 h-4 mx-auto mb-1 text-cyan-500" />
-                      <span className="text-xs">System</span>
+                      <span className="text-xs sm:text-sm font-semibold">System</span>
                     </button>
                   </div>
                 </div>
@@ -1088,17 +1103,17 @@ export const MobileAppLayout: React.FC = () => {
                     <div className="flex items-center gap-2.5">
                       <Smartphone className="w-4 h-4 text-teal-600 dark:text-teal-400" />
                       <div>
-                        <span className="text-xs font-bold text-teal-900 dark:text-teal-200 block">
+                        <span className="text-xs sm:text-sm font-bold text-teal-900 dark:text-teal-200 block">
                           PC Mobile Simulation
                         </span>
-                        <span className="text-[10px] text-teal-700 dark:text-teal-300">
+                        <span className="text-xs text-teal-700 dark:text-teal-300">
                           Return to multi-column desktop layout
                         </span>
                       </div>
                     </div>
                     <button
                       onClick={() => setPreviewMobileOnPc(false)}
-                      className="px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-sm active:scale-95 transition-all"
+                      className="px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-sm active:scale-95 transition-all"
                     >
                       Exit Preview
                     </button>
@@ -1112,12 +1127,12 @@ export const MobileAppLayout: React.FC = () => {
                     className="w-full p-3.5 flex items-center justify-between text-left hover:bg-slate-50 dark:hover:bg-[#1A283E]/50 rounded-2xl transition-colors cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                        <WalletIcon className="w-4 h-4" />
+                      <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                        <WalletIcon className="w-5 h-5" />
                       </div>
                       <div>
-                        <h4 className="font-bold text-xs text-slate-800 dark:text-white">Accounts & Wallets</h4>
-                        <p className="text-[10px] text-slate-400 dark:text-slate-400">
+                        <h4 className="font-bold text-xs sm:text-sm text-slate-800 dark:text-white">Accounts & Wallets</h4>
+                        <p className="text-xs text-slate-400 dark:text-slate-400">
                           {wallets.length} active banks and accounts
                         </p>
                       </div>
@@ -1130,12 +1145,12 @@ export const MobileAppLayout: React.FC = () => {
                     className="w-full p-3.5 flex items-center justify-between text-left hover:bg-slate-50 dark:hover:bg-[#1A283E]/50 rounded-2xl transition-colors cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-                        <Calendar className="w-4 h-4" />
+                      <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                        <Calendar className="w-5 h-5" />
                       </div>
                       <div>
-                        <h4 className="font-bold text-xs text-slate-800 dark:text-white">Recurring Bills</h4>
-                        <p className="text-[10px] text-slate-400 dark:text-slate-400">
+                        <h4 className="font-bold text-xs sm:text-sm text-slate-800 dark:text-white">Recurring Bills</h4>
+                        <p className="text-xs text-slate-400 dark:text-slate-400">
                           Scheduled expenses and subscriptions
                         </p>
                       </div>
@@ -1148,12 +1163,12 @@ export const MobileAppLayout: React.FC = () => {
                     className="w-full p-3.5 flex items-center justify-between text-left hover:bg-slate-50 dark:hover:bg-[#1A283E]/50 rounded-2xl transition-colors cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center">
-                        <TrendingUp className="w-4 h-4" />
+                      <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                        <TrendingUp className="w-5 h-5" />
                       </div>
                       <div>
-                        <h4 className="font-bold text-xs text-slate-800 dark:text-white">Financial Analytics</h4>
-                        <p className="text-[10px] text-slate-400 dark:text-slate-400">
+                        <h4 className="font-bold text-xs sm:text-sm text-slate-800 dark:text-white">Financial Analytics</h4>
+                        <p className="text-xs text-slate-400 dark:text-slate-400">
                           Cash flow, spending velocity & charts
                         </p>
                       </div>
@@ -1166,12 +1181,12 @@ export const MobileAppLayout: React.FC = () => {
                     className="w-full p-3.5 flex items-center justify-between text-left hover:bg-slate-50 dark:hover:bg-[#1A283E]/50 rounded-2xl transition-colors cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center">
-                        <ShieldCheck className="w-4 h-4" />
+                      <div className="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center">
+                        <ShieldCheck className="w-5 h-5" />
                       </div>
                       <div>
-                        <h4 className="font-bold text-xs text-slate-800 dark:text-white">Family Members</h4>
-                        <p className="text-[10px] text-slate-400 dark:text-slate-400">
+                        <h4 className="font-bold text-xs sm:text-sm text-slate-800 dark:text-white">Family Members</h4>
+                        <p className="text-xs text-slate-400 dark:text-slate-400">
                           Roles, lock screen patterns & permissions
                         </p>
                       </div>
@@ -1184,13 +1199,13 @@ export const MobileAppLayout: React.FC = () => {
                     className="w-full p-3.5 flex items-center justify-between text-left hover:bg-slate-50 dark:hover:bg-[#1A283E]/50 rounded-2xl transition-colors cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 text-cyan-600 dark:text-cyan-400 flex items-center justify-center">
-                        <Sliders className="w-4 h-4" />
+                      <div className="w-10 h-10 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 text-cyan-600 dark:text-cyan-400 flex items-center justify-center">
+                        <Sliders className="w-5 h-5" />
                       </div>
                       <div>
-                        <h4 className="font-bold text-xs text-slate-800 dark:text-white">Full Settings</h4>
-                        <p className="text-[10px] text-slate-400 dark:text-slate-400">
-                          Currency, data backup & daemon updates
+                        <h4 className="font-bold text-xs sm:text-sm text-slate-800 dark:text-white">Full Settings</h4>
+                        <p className="text-xs text-slate-400 dark:text-slate-400">
+                          Display scaling, currency, backup & daemon
                         </p>
                       </div>
                     </div>
@@ -1199,7 +1214,7 @@ export const MobileAppLayout: React.FC = () => {
                 </div>
 
                 {/* Footer Credits */}
-                <div className="text-center text-[11px] text-slate-400 dark:text-slate-500 pt-2">
+                <div className="text-center text-xs text-slate-400 dark:text-slate-500 pt-2">
                   BudgetFlow • Local-First • Zero-Telemetry
                 </div>
               </div>
@@ -1211,7 +1226,7 @@ export const MobileAppLayout: React.FC = () => {
       {/* ---------------------------------------------------------------------- */}
       {/* 3. DOCKED BOTTOM NAVIGATION BAR (Matching Screenshot)                   */}
       {/* ---------------------------------------------------------------------- */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#111C2D]/95 backdrop-blur-xl border-t border-slate-200/80 dark:border-[#1F304B] pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-1.5 transition-colors">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#111C2D]/95 backdrop-blur-xl border-t border-slate-200/80 dark:border-[#1F304B] pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2 transition-colors">
         <div className={`flex items-center justify-around ${previewMobileOnPc ? 'max-w-md mx-auto' : ''}`}>
           {/* Home */}
           <button
@@ -1222,8 +1237,8 @@ export const MobileAppLayout: React.FC = () => {
                 : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 font-medium'
             }`}
           >
-            <Home className="w-5 h-5 stroke-[2.2]" />
-            <span className="text-[10px]">Home</span>
+            <Home className="w-5 h-5 sm:w-5.5 sm:h-5.5 stroke-[2.2]" />
+            <span className="text-[11px] sm:text-xs font-semibold">Home</span>
             {activeTab === 'home' && !subView && (
               <span className="w-1.5 h-1.5 rounded-full bg-teal-500 absolute -top-1" />
             )}
@@ -1238,8 +1253,8 @@ export const MobileAppLayout: React.FC = () => {
                 : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 font-medium'
             }`}
           >
-            <Receipt className="w-5 h-5 stroke-[2.2]" />
-            <span className="text-[10px]">Transactions</span>
+            <Receipt className="w-5 h-5 sm:w-5.5 sm:h-5.5 stroke-[2.2]" />
+            <span className="text-[11px] sm:text-xs font-semibold">Transactions</span>
             {activeTab === 'transactions' && !subView && (
               <span className="w-1.5 h-1.5 rounded-full bg-teal-500 absolute -top-1" />
             )}
@@ -1254,8 +1269,8 @@ export const MobileAppLayout: React.FC = () => {
                 : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 font-medium'
             }`}
           >
-            <PieChart className="w-5 h-5 stroke-[2.2]" />
-            <span className="text-[10px]">Budgets</span>
+            <PieChart className="w-5 h-5 sm:w-5.5 sm:h-5.5 stroke-[2.2]" />
+            <span className="text-[11px] sm:text-xs font-semibold">Budgets</span>
             {activeTab === 'budgets' && !subView && (
               <span className="w-1.5 h-1.5 rounded-full bg-teal-500 absolute -top-1" />
             )}
@@ -1270,8 +1285,8 @@ export const MobileAppLayout: React.FC = () => {
                 : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 font-medium'
             }`}
           >
-            <Target className="w-5 h-5 stroke-[2.2]" />
-            <span className="text-[10px]">Goals</span>
+            <Target className="w-5 h-5 sm:w-5.5 sm:h-5.5 stroke-[2.2]" />
+            <span className="text-[11px] sm:text-xs font-semibold">Goals</span>
             {activeTab === 'goals' && !subView && (
               <span className="w-1.5 h-1.5 rounded-full bg-teal-500 absolute -top-1" />
             )}
@@ -1286,8 +1301,8 @@ export const MobileAppLayout: React.FC = () => {
                 : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 font-medium'
             }`}
           >
-            <MoreHorizontal className="w-5 h-5 stroke-[2.2]" />
-            <span className="text-[10px]">More</span>
+            <MoreHorizontal className="w-5 h-5 sm:w-5.5 sm:h-5.5 stroke-[2.2]" />
+            <span className="text-[11px] sm:text-xs font-semibold">More</span>
             {(activeTab === 'more' || subView) && (
               <span className="w-1.5 h-1.5 rounded-full bg-teal-500 absolute -top-1" />
             )}
@@ -1311,10 +1326,10 @@ export const MobileAppLayout: React.FC = () => {
                   <Tag className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm text-slate-800 dark:text-white">
+                  <h3 className="font-bold text-sm sm:text-base text-slate-800 dark:text-white">
                     {selectedCategory.name}
                   </h3>
-                  <span className="text-[10px] text-slate-400 dark:text-slate-400">
+                  <span className="text-xs text-slate-400 dark:text-slate-400">
                     Adjust Monthly Spending Cap
                   </span>
                 </div>
