@@ -30,6 +30,10 @@ import {
   Landmark,
   Target,
   Edit2,
+  LayoutDashboard,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { api } from '../../services/api';
@@ -39,6 +43,8 @@ import { comparePatterns } from '../../utils/patternAuth';
 import { formatCurrency, formatCurrencyExact, formatDateDisplay } from '../../utils/formatters';
 import { GuideButton } from '../guide/GuideButton';
 import { TabletClock } from './TabletClock';
+import { TabletActivityCalendar } from './TabletActivityCalendar';
+import { AddActivityModal } from '../features/AddActivityModal';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   ShoppingBag,
@@ -73,7 +79,42 @@ export const TabletKioskView: React.FC = () => {
     currentUser,
     switchUser,
     isSelfHosted,
+    isAddActivityOpen,
+    setIsAddActivityOpen,
+    addActivityInitialDate,
+    setAddActivityInitialDate,
   } = useFinance();
+
+  // --------------------------------------------------------------------------
+  // SLIDE CAROUSEL STATE (0: Dashboard, 1: Activity Calendar)
+  // Supports touch swipe, arrow controls, and header toggle
+  // --------------------------------------------------------------------------
+  const [activeSlide, setActiveSlide] = useState<0 | 1>(0);
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+
+  const handleTouchStartCarousel = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEndCarousel = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const deltaX = e.changedTouches[0].clientX - touchStartX.current;
+    const deltaY = e.changedTouches[0].clientY - touchStartY.current;
+    // Dominant horizontal swipe (> 45px)
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 45) {
+      if (deltaX < 0) {
+        // Swiped left -> Calendar (Slide 1)
+        setActiveSlide(1);
+      } else {
+        // Swiped right -> Dashboard (Slide 0)
+        setActiveSlide(0);
+      }
+    }
+    touchStartX.current = null;
+    touchStartY.current = null;
+  };
 
   // --------------------------------------------------------------------------
   // 1. THEME & GRAPHICS PERFORMANCE STATE
@@ -455,13 +496,13 @@ export const TabletKioskView: React.FC = () => {
       userName: activeKioskUser?.name,
     });
 
-    try {
-      await saveAll();
-    } catch (saveErr) {
+    saveAll().catch((saveErr) => {
       console.error('Failed to auto-save tablet transaction:', saveErr);
-    }
+    });
 
-    triggerConfetti();
+    if (graphicsMode !== 'lite') {
+      triggerConfetti();
+    }
     setActionSuccessMessage(
       `Logged ${formatCurrency(amount, preferences.currency)} ${isIncome ? 'income' : 'expense'} by ${activeKioskUser?.name}!`
     );
@@ -587,10 +628,30 @@ export const TabletKioskView: React.FC = () => {
           dateSizeClass={clockDateSize}
         />
 
-        {/* Ambient Badge for large screens */}
-        <div className="hidden lg:flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-teal-500/10 text-teal-600 dark:text-teal-300 border border-teal-500/20">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>Perpetual Hub Kiosk</span>
+        {/* Slide Carousel Switcher (Dashboard / Calendar) */}
+        <div className="flex items-center p-1 rounded-2xl border bg-black/25 dark:bg-slate-900/60 border-white/10 shadow-xs">
+          <button
+            onClick={() => setActiveSlide(0)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs transition-all active:scale-95 ${
+              activeSlide === 0
+                ? 'bg-teal-500 text-slate-950 shadow-md shadow-teal-500/25'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <LayoutDashboard className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Overview</span>
+          </button>
+          <button
+            onClick={() => setActiveSlide(1)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs transition-all active:scale-95 ${
+              activeSlide === 1
+                ? 'bg-teal-500 text-slate-950 shadow-md shadow-teal-500/25'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <CalendarDays className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Calendar</span>
+          </button>
         </div>
 
         {/* Right Icon Controls */}
@@ -678,199 +739,278 @@ export const TabletKioskView: React.FC = () => {
       </div>
 
       {/* ========================================================
-          CENTER GLANCE: 2-WIDGET ADAPTIVE GRID
-          Uses flex-1 min-h-0 so it automatically fills available
-          vertical space without pushing the bottom action bar off-screen.
+          SWIPABLE CAROUSEL: DASHBOARD (SLIDE 0) & CALENDAR (SLIDE 1)
+          Full touch swipe gestures + responsive across all tablet sizes
           ======================================================== */}
       <div
-        className={`flex-1 min-h-0 my-2 sm:my-3 grid relative z-10 transition-all ${
-          viewport.isLandscape ? 'grid-cols-2 gap-3 sm:gap-5' : 'grid-cols-1 gap-3 sm:gap-4'
-        }`}
+        onTouchStart={handleTouchStartCarousel}
+        onTouchEnd={handleTouchEndCarousel}
+        className="flex-1 min-h-0 w-full overflow-hidden relative z-10 my-2 sm:my-3"
       >
-        {/* WIDGET 1: Upcoming Bills Radar */}
-        <div className={`rounded-2xl sm:rounded-3xl border flex flex-col min-h-0 justify-between p-3.5 sm:p-5 transition-all ${cardClass}`}>
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <span className={`font-bold uppercase tracking-wider flex items-center space-x-1.5 text-xs ${isDark ? 'text-teal-300' : 'text-teal-800'}`}>
-                <Calendar className="w-4 h-4 text-cyan-400" />
-                <span>Upcoming Bills</span>
-              </span>
-              <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] sm:text-xs ${
-                isDark
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                  : 'bg-cyan-100 text-cyan-800 border border-cyan-300'
-              }`}>
-                {upcomingBillsCount} due soon
-              </span>
-            </div>
-            <div className="font-black text-2xl sm:text-4xl tracking-tight leading-tight">
-              {formatCurrency(upcomingBillsTotal, preferences.currency)}
-            </div>
-          </div>
-
-          {/* Scrollable list inside card */}
-          <div className="mt-3 pt-2.5 border-t border-slate-500/15 flex-1 min-h-0 overflow-y-auto pr-1 space-y-1.5">
-            {bills
-              .filter((b) => !b.isPaid)
-              .slice(0, 5)
-              .map((bill) => (
-                <div
-                  key={bill.id}
-                  className={`flex items-center justify-between p-2 rounded-xl border text-xs ${rowClass}`}
-                >
-                  <div className="min-w-0 pr-2">
-                    <span className="font-semibold block truncate">{bill.name}</span>
-                    <span className="text-[10px] opacity-70">Due {formatDateDisplay(bill.dueDate)}</span>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <span className="font-bold block">
-                      {formatCurrency(bill.amount, preferences.currency)}
+        <div
+          className="h-full flex transition-transform duration-300 ease-out will-change-transform"
+          style={{
+            width: '200%',
+            transform: activeSlide === 0 ? 'translateX(0%)' : 'translateX(-50%)',
+          }}
+        >
+          {/* SLIDE 0: MAIN DASHBOARD */}
+          <div className="w-1/2 h-full flex flex-col justify-between pr-1.5 sm:pr-3 min-h-0">
+            {/* Center Glance: 2-Widget Grid */}
+            <div
+              className={`flex-1 min-h-0 mb-2 sm:mb-3 grid transition-all ${
+                viewport.isLandscape ? 'grid-cols-2 gap-3 sm:gap-5' : 'grid-cols-1 gap-3 sm:gap-4'
+              }`}
+            >
+              {/* WIDGET 1: Upcoming Bills Radar */}
+              <div className={`rounded-2xl sm:rounded-3xl border flex flex-col min-h-0 justify-between p-3.5 sm:p-5 transition-all ${cardClass}`}>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={`font-bold uppercase tracking-wider flex items-center space-x-1.5 text-xs ${isDark ? 'text-teal-300' : 'text-teal-800'}`}>
+                      <Calendar className="w-4 h-4 text-cyan-400" />
+                      <span>Upcoming Bills</span>
                     </span>
-                    {bill.autoPay && (
-                      <span className="text-[9px] font-bold text-emerald-400 uppercase">AutoPay</span>
-                    )}
+                    <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] sm:text-xs ${
+                      isDark
+                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                        : 'bg-cyan-100 text-cyan-800 border border-cyan-300'
+                    }`}>
+                      {upcomingBillsCount} due soon
+                    </span>
+                  </div>
+                  <div className="font-black text-2xl sm:text-4xl tracking-tight leading-tight">
+                    {formatCurrency(upcomingBillsTotal, preferences.currency)}
                   </div>
                 </div>
-              ))}
-            {bills.filter((b) => !b.isPaid).length === 0 && (
-              <p className="italic text-xs opacity-60 text-center py-4">All bills paid!</p>
-            )}
-          </div>
-        </div>
 
-        {/* WIDGET 2: List of Savings Goals */}
-        <div className={`rounded-2xl sm:rounded-3xl border flex flex-col min-h-0 justify-between p-3.5 sm:p-5 transition-all ${cardClass}`}>
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <span className={`font-bold uppercase tracking-wider flex items-center space-x-1.5 text-xs ${isDark ? 'text-teal-300' : 'text-teal-800'}`}>
-                <Target className="w-4 h-4 text-emerald-400" />
-                <span>Savings Goals</span>
-              </span>
-              <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] sm:text-xs ${
-                isDark
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                  : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-              }`}>
-                {goals.length} Active
-              </span>
-            </div>
-            <div className="flex items-baseline space-x-2">
-              <div className="font-black text-2xl sm:text-4xl tracking-tight leading-tight">
-                {formatCurrency(totalGoalCurrent, preferences.currency)}
+                {/* Scrollable list inside card */}
+                <div className="mt-3 pt-2.5 border-t border-slate-500/15 flex-1 min-h-0 overflow-y-auto pr-1 space-y-1.5">
+                  {bills
+                    .filter((b) => !b.isPaid)
+                    .slice(0, 5)
+                    .map((bill) => (
+                      <div
+                        key={bill.id}
+                        className={`flex items-center justify-between p-2 rounded-xl border text-xs ${rowClass}`}
+                      >
+                        <div className="min-w-0 pr-2">
+                          <span className="font-semibold block truncate">{bill.name}</span>
+                          <span className="text-[10px] opacity-70">Due {formatDateDisplay(bill.dueDate)}</span>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="font-bold block">
+                            {formatCurrency(bill.amount, preferences.currency)}
+                          </span>
+                          {bill.autoPay && (
+                            <span className="text-[9px] font-bold text-emerald-400 uppercase">AutoPay</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  {bills.filter((b) => !b.isPaid).length === 0 && (
+                    <p className="italic text-xs opacity-60 text-center py-4">All bills paid!</p>
+                  )}
+                </div>
               </div>
-              <span className="text-xs font-medium opacity-70">
-                of {formatCurrency(totalGoalTarget, preferences.currency)} ({totalGoalPercent}%)
-              </span>
+
+              {/* WIDGET 2: List of Savings Goals */}
+              <div className={`rounded-2xl sm:rounded-3xl border flex flex-col min-h-0 justify-between p-3.5 sm:p-5 transition-all ${cardClass}`}>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={`font-bold uppercase tracking-wider flex items-center space-x-1.5 text-xs ${isDark ? 'text-teal-300' : 'text-teal-800'}`}>
+                      <Target className="w-4 h-4 text-emerald-400" />
+                      <span>Savings Goals</span>
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] sm:text-xs ${
+                      isDark
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                        : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                    }`}>
+                      {goals.length} Active
+                    </span>
+                  </div>
+                  <div className="flex items-baseline space-x-2">
+                    <div className="font-black text-2xl sm:text-4xl tracking-tight leading-tight">
+                      {formatCurrency(totalGoalCurrent, preferences.currency)}
+                    </div>
+                    <span className="text-xs font-medium opacity-70">
+                      of {formatCurrency(totalGoalTarget, preferences.currency)} ({totalGoalPercent}%)
+                    </span>
+                  </div>
+                </div>
+
+                {/* Scrollable list inside card */}
+                <div className="mt-3 pt-2.5 border-t border-slate-500/15 flex-1 min-h-0 overflow-y-auto pr-1 space-y-2">
+                  {goals.map((goal) => {
+                    const pct = goal.targetAmount > 0
+                      ? Math.min(100, Math.round((goal.currentAmount / goal.targetAmount) * 100))
+                      : 0;
+                    return (
+                      <div
+                        key={goal.id}
+                        className={`p-2 sm:p-2.5 rounded-xl border space-y-1 text-xs ${rowClass}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: goal.color }} />
+                            <span className="font-bold truncate">{goal.name}</span>
+                          </div>
+                          <span className="font-extrabold text-emerald-400 shrink-0">{pct}%</span>
+                        </div>
+
+                        <div className="w-full h-1.5 rounded-full bg-slate-500/20 overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{ width: `${pct}%`, backgroundColor: goal.color }}
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between text-[10px] opacity-70">
+                          <span>{formatCurrency(goal.currentAmount, preferences.currency)} saved</span>
+                          <span>Target: {formatCurrency(goal.targetAmount, preferences.currency)}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {goals.length === 0 && (
+                    <p className="italic text-xs opacity-60 text-center py-4">No active savings goals.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Action Bar */}
+            <div
+              className={`rounded-2xl sm:rounded-3xl border relative z-10 shrink-0 flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 p-3 sm:p-4 transition-all ${bottomBarClass}`}
+            >
+              {/* Family Member Presence */}
+              <div className="flex items-center space-x-3">
+                <div className="flex -space-x-2">
+                  {familyUsers.map((u) => (
+                    <div
+                      key={u.id}
+                      className="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center border-2 border-slate-900 text-lg sm:text-xl shadow-xs transform hover:scale-110 transition-transform"
+                      style={{ backgroundColor: u.color }}
+                      title={`${u.name} (${u.role})`}
+                    >
+                      <span>{u.avatar}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="text-left leading-tight">
+                  <p className={`font-bold text-xs sm:text-sm uppercase tracking-wider ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    Family Hub Ready
+                  </p>
+                  <p className={`text-[10px] sm:text-xs ${isDark ? 'text-teal-300' : 'text-teal-700'}`}>
+                    Tap to view balances or log an expense
+                  </p>
+                </div>
+              </div>
+
+              {/* Primary Action Buttons */}
+              <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                {/* Button 1: View Balances */}
+                <button
+                  onClick={handleOpenViewBalances}
+                  className={`flex-1 sm:flex-none px-4 sm:px-6 py-2.5 sm:py-3.5 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-95 ${
+                    isDark
+                      ? 'bg-white/10 hover:bg-white/20 border border-white/20 text-white'
+                      : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 shadow-sm'
+                  }`}
+                >
+                  <Eye className="w-4 h-4 text-teal-400" />
+                  <span>View balances</span>
+                </button>
+
+                {/* Button 2: + Log */}
+                <button
+                  onClick={handleOpenLogExpense}
+                  className={`flex-1 sm:flex-none px-5 sm:px-8 py-2.5 sm:py-3.5 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg ${
+                    isDark
+                      ? 'bg-gradient-to-r from-teal-400 via-teal-500 to-emerald-500 text-slate-950 shadow-teal-500/25'
+                      : 'bg-gradient-to-r from-teal-500 via-teal-600 to-emerald-600 text-white shadow-teal-600/25'
+                  }`}
+                >
+                  <PlusCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span>+ Log</span>
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Scrollable list inside card */}
-          <div className="mt-3 pt-2.5 border-t border-slate-500/15 flex-1 min-h-0 overflow-y-auto pr-1 space-y-2">
-            {goals.map((goal) => {
-              const pct = goal.targetAmount > 0
-                ? Math.min(100, Math.round((goal.currentAmount / goal.targetAmount) * 100))
-                : 0;
-              return (
-                <div
-                  key={goal.id}
-                  className={`p-2 sm:p-2.5 rounded-xl border space-y-1 text-xs ${rowClass}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: goal.color }} />
-                      <span className="font-bold truncate">{goal.name}</span>
-                    </div>
-                    <span className="font-extrabold text-emerald-400 shrink-0">{pct}%</span>
-                  </div>
-
-                  <div className="w-full h-1.5 rounded-full bg-slate-500/20 overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{ width: `${pct}%`, backgroundColor: goal.color }}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between text-[10px] opacity-70">
-                    <span>{formatCurrency(goal.currentAmount, preferences.currency)} saved</span>
-                    <span>Target: {formatCurrency(goal.targetAmount, preferences.currency)}</span>
-                  </div>
-                </div>
-              );
-            })}
-            {goals.length === 0 && (
-              <p className="italic text-xs opacity-60 text-center py-4">No active savings goals.</p>
-            )}
+          {/* SLIDE 1: INTERACTIVE ACTIVITY CALENDAR */}
+          <div className="w-1/2 h-full flex flex-col min-h-0 pl-1.5 sm:pl-3">
+            <TabletActivityCalendar
+              viewport={viewport}
+              theme={theme}
+              isLite={isLite}
+              onOpenAddActivity={(dateStr?: string) => {
+                if (dateStr) setAddActivityInitialDate(dateStr);
+                setIsAddActivityOpen(true);
+              }}
+            />
           </div>
         </div>
       </div>
 
-      {/* ========================================================
-          BOTTOM ACTION BAR: Family Presence & Primary Buttons
-          Guaranteed visible at bottom without scrollbar
-          ======================================================== */}
-      <div
-        className={`rounded-2xl sm:rounded-3xl border relative z-10 shrink-0 flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 p-3 sm:p-4 transition-all ${bottomBarClass}`}
-      >
-        {/* Family Member Presence */}
-        <div className="flex items-center space-x-3">
-          <div className="flex -space-x-2">
-            {familyUsers.map((u) => (
-              <div
-                key={u.id}
-                className="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center border-2 border-slate-900 text-lg sm:text-xl shadow-xs transform hover:scale-110 transition-transform"
-                style={{ backgroundColor: u.color }}
-                title={`${u.name} (${u.role})`}
-              >
-                <span>{u.avatar}</span>
-              </div>
-            ))}
-          </div>
-          <div className="text-left leading-tight">
-            <p className={`font-bold text-xs sm:text-sm uppercase tracking-wider ${isDark ? 'text-white' : 'text-slate-900'}`}>
-              Family Hub Ready
-            </p>
-            <p className={`text-[10px] sm:text-xs ${isDark ? 'text-teal-300' : 'text-teal-700'}`}>
-              Tap to view balances or log an expense
-            </p>
-          </div>
+      {/* Slide Indicators & Quick Navigation Bar */}
+      <div className="flex items-center justify-between px-2 pt-0.5 pb-0 text-xs shrink-0 select-none">
+        <button
+          onClick={() => setActiveSlide(0)}
+          className={`flex items-center gap-1 transition-all active:scale-95 ${
+            activeSlide === 0
+              ? 'text-teal-400 font-bold opacity-100'
+              : 'text-slate-400 opacity-60 hover:opacity-100'
+          }`}
+        >
+          <ChevronLeft className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline text-[11px]">Overview</span>
+        </button>
+
+        <div className="flex items-center gap-1.5 py-0.5 px-3 rounded-full bg-slate-900/40 border border-white/5">
+          <button
+            onClick={() => setActiveSlide(0)}
+            className={`h-1.5 rounded-full transition-all cursor-pointer ${
+              activeSlide === 0 ? 'w-5 bg-teal-400' : 'w-1.5 bg-slate-500/40 hover:bg-slate-400'
+            }`}
+            title="Overview Slide"
+            aria-label="Overview Slide"
+          />
+          <button
+            onClick={() => setActiveSlide(1)}
+            className={`h-1.5 rounded-full transition-all cursor-pointer ${
+              activeSlide === 1 ? 'w-5 bg-teal-400' : 'w-1.5 bg-slate-500/40 hover:bg-slate-400'
+            }`}
+            title="Calendar Slide"
+            aria-label="Calendar Slide"
+          />
+          <span className="text-[10px] ml-1 text-slate-400 font-medium tracking-wider uppercase opacity-70">
+            Swipe ⇄
+          </span>
         </div>
 
-        {/* Primary Action Buttons */}
-        <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
-          {/* Button 1: View Balances */}
-          <button
-            onClick={handleOpenViewBalances}
-            className={`flex-1 sm:flex-none px-4 sm:px-6 py-2.5 sm:py-3.5 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-95 ${
-              isDark
-                ? 'bg-white/10 hover:bg-white/20 border border-white/20 text-white'
-                : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 shadow-sm'
-            }`}
-          >
-            <Eye className="w-4 h-4 text-teal-400" />
-            <span>View balances</span>
-          </button>
-
-          {/* Button 2: + Log */}
-          <button
-            onClick={handleOpenLogExpense}
-            className={`flex-1 sm:flex-none px-5 sm:px-8 py-2.5 sm:py-3.5 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg ${
-              isDark
-                ? 'bg-gradient-to-r from-teal-400 via-teal-500 to-emerald-500 text-slate-950 shadow-teal-500/25'
-                : 'bg-gradient-to-r from-teal-500 via-teal-600 to-emerald-600 text-white shadow-teal-600/25'
-            }`}
-          >
-            <PlusCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-            <span>+ Log</span>
-          </button>
-        </div>
+        <button
+          onClick={() => setActiveSlide(1)}
+          className={`flex items-center gap-1 transition-all active:scale-95 ${
+            activeSlide === 1
+              ? 'text-teal-400 font-bold opacity-100'
+              : 'text-slate-400 opacity-60 hover:opacity-100'
+          }`}
+        >
+          <span className="hidden sm:inline text-[11px]">Calendar</span>
+          <ChevronRight className="w-3.5 h-3.5" />
+        </button>
       </div>
 
       {/* ========================================================
           RESPONSIVE MODAL: VIEW BALANCES OVERLAY
           ======================================================== */}
       {isViewBalancesOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl max-w-lg w-full max-h-[88dvh] flex flex-col p-5 sm:p-6 shadow-2xl border border-slate-100 relative text-slate-800">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/85 animate-in fade-in duration-150">
+          <div 
+            className="bg-white rounded-3xl max-w-lg w-full max-h-[88dvh] flex flex-col p-5 sm:p-6 shadow-2xl border border-slate-100 relative text-slate-800 transform-gpu"
+            style={{ transform: 'translateZ(0)' }}
+          >
             <button
               onClick={handleCloseViewBalances}
               className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
@@ -1023,8 +1163,11 @@ export const TabletKioskView: React.FC = () => {
           RESPONSIVE MODAL: LOG EXPENSE OVERLAY
           ======================================================== */}
       {isKioskActionOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl max-w-lg w-full max-h-[90dvh] flex flex-col p-5 sm:p-6 shadow-2xl border border-slate-100 relative text-slate-800">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/85 animate-in fade-in duration-150">
+          <div 
+            className="bg-white rounded-3xl max-w-lg w-full max-h-[90dvh] flex flex-col p-5 sm:p-6 shadow-2xl border border-slate-100 relative text-slate-800 transform-gpu"
+            style={{ transform: 'translateZ(0)' }}
+          >
             <button
               onClick={handleCloseKioskAction}
               className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
@@ -1329,8 +1472,11 @@ export const TabletKioskView: React.FC = () => {
           RESPONSIVE MODAL: EXIT TABLET MODE PATTERN CONFIRMATION
           ======================================================== */}
       {isExitTabletModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl max-w-sm sm:max-w-md w-full max-h-[90dvh] flex flex-col p-5 sm:p-6 shadow-2xl border border-slate-100 relative text-slate-800">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/85 animate-in fade-in duration-150">
+          <div 
+            className="bg-white rounded-3xl max-w-sm sm:max-w-md w-full max-h-[90dvh] flex flex-col p-5 sm:p-6 shadow-2xl border border-slate-100 relative text-slate-800 transform-gpu"
+            style={{ transform: 'translateZ(0)' }}
+          >
             <button
               onClick={handleCloseExitModal}
               className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"
@@ -1403,6 +1549,15 @@ export const TabletKioskView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ========================================================
+          ADD ACTIVITY MODAL (TABLET COMPATIBLE)
+          ======================================================== */}
+      <AddActivityModal
+        isOpen={isAddActivityOpen}
+        onClose={() => setIsAddActivityOpen(false)}
+        initialDate={addActivityInitialDate}
+      />
     </div>
   );
 };

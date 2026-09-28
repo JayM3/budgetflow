@@ -32,13 +32,35 @@ export interface HouseholdSettings {
 
 export type RecurringItemType = 'bill' | 'income';
 
+export type ActivityCategory = 'family' | 'school' | 'health' | 'social' | 'work' | 'chores';
+
+export interface ActivityItem {
+  id: string;
+  title: string;
+  category: ActivityCategory;
+  date: string; // YYYY-MM-DD
+  startTime?: string; // HH:mm e.g. "07:00"
+  endTime?: string;   // HH:mm e.g. "08:00"
+  allDay?: boolean;
+  assignedUserId?: string;
+  assignedUserName?: string;
+  location?: string;
+  notes?: string;
+  isCompleted?: boolean;
+  completedAt?: string;
+  hasReward?: boolean;
+  rewardAmount?: number;
+  rewardWalletId?: string;
+  rewardPaid?: boolean;
+}
+
 export interface ActivityLog {
   id: string;
   timestamp: string; // ISO datetime e.g. 2026-09-27T17:41:22.000Z
   userId?: string;
   userName: string;
   action: 'create' | 'update' | 'delete' | 'rebalance' | 'pay' | 'receive' | 'reconcile';
-  entity: 'transaction' | 'budget' | 'bill' | 'goal' | 'wallet' | 'user';
+  entity: 'transaction' | 'budget' | 'bill' | 'goal' | 'wallet' | 'user' | 'activity';
   description: string;
   details?: Record<string, any>;
 }

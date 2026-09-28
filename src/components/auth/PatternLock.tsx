@@ -10,6 +10,7 @@ interface PatternLockProps {
   onCancel?: () => void;
   onPatternCreated?: (pattern: number[]) => void;
   size?: number;
+  hideHeader?: boolean;
 }
 
 export const PatternLock: React.FC<PatternLockProps> = ({
@@ -21,6 +22,7 @@ export const PatternLock: React.FC<PatternLockProps> = ({
   onCancel,
   onPatternCreated,
   size = 280,
+  hideHeader = false,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -313,20 +315,22 @@ export const PatternLock: React.FC<PatternLockProps> = ({
       style={{ touchAction: 'none' }}
     >
       {/* Title & Prompt */}
-      <div className="text-center mb-3">
-        <h3 className="text-base font-bold text-slate-800 flex items-center justify-center space-x-2">
-          <Lock className="w-4 h-4 text-teal-600" />
-          <span>{title || (mode === 'create' ? 'Set Your 9-Dot Pattern' : 'Draw Your Pattern')}</span>
-        </h3>
-        <p className="text-xs text-slate-500 mt-0.5">
-          {subtitle ||
-            (mode === 'create'
-              ? createStep === 1
-                ? `Connect at least ${minPoints} dots`
-                : 'Confirm by drawing the same pattern'
-              : 'Swipe across the 9 dots to unlock')}
-        </p>
-      </div>
+      {!hideHeader && (
+        <div className="text-center mb-3">
+          <h3 className="text-base font-bold text-slate-800 flex items-center justify-center space-x-2">
+            <Lock className="w-4 h-4 text-teal-600" />
+            <span>{title || (mode === 'create' ? 'Set Your 9-Dot Pattern' : 'Draw Your Pattern')}</span>
+          </h3>
+          <p className="text-xs text-slate-500 mt-0.5">
+            {subtitle ||
+              (mode === 'create'
+                ? createStep === 1
+                  ? `Connect at least ${minPoints} dots`
+                  : 'Confirm by drawing the same pattern'
+                : 'Swipe across the 9 dots to unlock')}
+          </p>
+        </div>
+      )}
 
       {/* Dynamic Status / Feedback text */}
       <div className="h-6 flex items-center justify-center mb-2">

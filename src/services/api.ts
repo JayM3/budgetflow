@@ -627,9 +627,9 @@ export const api = {
         return await res.json();
       }
       const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-      return { success: false, updateAvailable: false, currentVersion: '1.0.2.3', error: err.error };
+      return { success: false, updateAvailable: false, currentVersion: '1.0.2.4', error: err.error };
     } catch (e: any) {
-      return { success: false, updateAvailable: false, currentVersion: '1.0.2.3', error: e.message };
+      return { success: false, updateAvailable: false, currentVersion: '1.0.2.4', error: e.message };
     }
   },
 

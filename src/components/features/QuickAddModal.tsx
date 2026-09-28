@@ -136,8 +136,11 @@ export const QuickAddModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/75 backdrop-blur-sm animate-in fade-in duration-200 select-none">
-      <div className="bg-white dark:bg-[#131F33] rounded-3xl w-full max-w-lg shadow-2xl border border-slate-100 dark:border-[#1F304B] overflow-hidden text-slate-800 dark:text-slate-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 dark:bg-black/85 animate-in fade-in duration-150 select-none">
+      <div 
+        className="bg-white dark:bg-[#131F33] rounded-3xl w-full max-w-lg shadow-2xl border border-slate-100 dark:border-[#1F304B] overflow-hidden text-slate-800 dark:text-slate-100 transform-gpu"
+        style={{ transform: 'translateZ(0)' }}
+      >
         {/* Header */}
         <div className="p-5 sm:p-6 bg-gradient-to-r from-teal-600 via-cyan-600 to-sky-600 text-white flex items-center justify-between">
           <div className="flex items-center gap-2.5">

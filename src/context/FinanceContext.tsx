@@ -14,6 +14,7 @@ import {
   GuideId,
   ActivityLog,
   DisplayScalePreference,
+  ActivityItem,
 } from '../types/finance';
 import { detectDeviceScreen, DeviceScreenInfo } from '../utils/deviceDetector';
 import {
@@ -25,6 +26,7 @@ import {
   initialPreferences,
   initialFamilyUsers,
   initialHouseholdSettings,
+  initialActivities,
   demoCategories,
   demoTransactions,
   demoBills,
@@ -33,6 +35,7 @@ import {
   demoPreferences,
   demoFamilyUsers,
   demoHouseholdSettings,
+  demoActivities,
 } from '../data/initialData';
 import { isGitHubPages } from '../utils/env';
 import {
@@ -47,6 +50,7 @@ import { getTodayISO, calculateNextDueDate, advanceDueDateToFuture } from '../ut
 export type ActiveView = 
   | 'dashboard'
   | 'budgets'
+  | 'activities'
   | 'transactions'
   | 'bills'
   | 'goals'
@@ -58,6 +62,7 @@ export type ActiveView =
 export const VALID_VIEWS: readonly ActiveView[] = [
   'dashboard',
   'budgets',
+  'activities',
   'transactions',
   'bills',
   'goals',
@@ -177,6 +182,17 @@ interface FinanceContextType {
   setIsActivityLogOpen: (open: boolean) => void;
   activityLogs: ActivityLog[];
   logActivity: (action: ActivityLog['action'], entity: ActivityLog['entity'], description: string, details?: any) => void;
+
+  // Activities & Chores Feature
+  activities: ActivityItem[];
+  addActivity: (activity: Omit<ActivityItem, 'id'>) => void;
+  updateActivity: (id: string, updates: Partial<ActivityItem>) => void;
+  deleteActivity: (id: string) => void;
+  toggleActivityComplete: (id: string) => void;
+  isAddActivityOpen: boolean;
+  setIsAddActivityOpen: (open: boolean) => void;
+  addActivityInitialDate?: string;
+  setAddActivityInitialDate: (date?: string) => void;
 
   // Family Management Actions
   addFamilyUser: (user: Omit<FamilyUser, 'id'>) => void;
@@ -482,6 +498,24 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     localStorage.setItem(LS_PREFIX + 'activityLogs', JSON.stringify(activityLogs));
   }, [activityLogs]);
 
+  // Activities & Chores State
+  const [activities, setActivities] = useState<ActivityItem[]>(() => {
+    try {
+      const saved = localStorage.getItem(LS_PREFIX + 'activities');
+      if (saved) return JSON.parse(saved);
+      return demoActivities;
+    } catch {
+      return demoActivities;
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem(LS_PREFIX + 'activities', JSON.stringify(activities));
+  }, [activities]);
+
+  const [isAddActivityOpen, setIsAddActivityOpen] = useState<boolean>(false);
+  const [addActivityInitialDate, setAddActivityInitialDate] = useState<string | undefined>(undefined);
+
   // Live ref holding latest state to guarantee beforeunload / timer callbacks never access stale closures
   const stateRef = useRef({
     householdSettings,
@@ -494,6 +528,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     goals,
     allWallets,
     activityLogs,
+    activities,
   });
 
   useEffect(() => {
@@ -508,6 +543,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       goals,
       allWallets,
       activityLogs,
+      activities,
     };
   });
 
@@ -953,6 +989,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       localStorage.setItem(LS_PREFIX + 'goals', JSON.stringify(current.goals));
       localStorage.setItem(LS_PREFIX + 'wallets', JSON.stringify(current.allWallets));
       localStorage.setItem(LS_PREFIX + 'activityLogs', JSON.stringify(current.activityLogs));
+      localStorage.setItem(LS_PREFIX + 'activities', JSON.stringify(current.activities || activities));
     } catch (e) {
       console.error('Failed to sync to localStorage', e);
     }
@@ -1587,6 +1624,50 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  // Activities & Chores Actions
+  const addActivity = (item: Omit<ActivityItem, 'id'>) => {
+    const newActivity: ActivityItem = {
+      ...item,
+      id: 'act-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+      isCompleted: Boolean(item.isCompleted),
+    };
+    setActivities((prev) => [newActivity, ...prev]);
+    logActivity('create', 'activity', `Added activity '${newActivity.title}' (${newActivity.category})`);
+  };
+
+  const updateActivity = (id: string, updates: Partial<ActivityItem>) => {
+    setActivities((prev) =>
+      prev.map((act) => (act.id === id ? { ...act, ...updates } : act))
+    );
+  };
+
+  const deleteActivity = (id: string) => {
+    const act = activities.find((a) => a.id === id);
+    setActivities((prev) => prev.filter((a) => a.id !== id));
+    if (act) {
+      logActivity('delete', 'activity', `Removed activity '${act.title}'`);
+    }
+  };
+
+  const toggleActivityComplete = (id: string) => {
+    setActivities((prev) =>
+      prev.map((act) => {
+        if (act.id === id) {
+          const nextCompleted = !act.isCompleted;
+          if (nextCompleted) {
+            triggerConfetti();
+          }
+          return {
+            ...act,
+            isCompleted: nextCompleted,
+            completedAt: nextCompleted ? new Date().toISOString() : undefined,
+          };
+        }
+        return act;
+      })
+    );
+  };
+
   const isAutoProcessingRef = useRef(false);
 
   const toggleBillPaid = (billId: string) => {
@@ -1990,6 +2071,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setBills(demoBills);
     setGoals(demoGoals);
     setAllWallets(demoWallets);
+    setActivities(demoActivities);
     if (isSelfHosted) {
       api.saveAll({
         householdSettings: demoHouseholdSettings,
@@ -2012,6 +2094,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setGoals([]);
     const freshWallets = allWallets.map((w) => ({ ...w, balance: 0 }));
     setAllWallets(freshWallets);
+    setActivities(initialActivities);
     if (isSelfHosted) {
       api.saveAll({
         transactions: [],
@@ -2033,6 +2116,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       bills,
       goals,
       wallets: allWallets,
+      activities,
       exportedAt: new Date().toISOString(),
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
@@ -2057,6 +2141,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (data.bills) setBills(data.bills);
       if (data.goals) setGoals(data.goals);
       if (data.wallets) setAllWallets(data.wallets);
+      if (Array.isArray(data.activities)) setActivities(data.activities);
       if (isSelfHosted) {
         api.saveAll(data);
       }
@@ -2366,6 +2451,15 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setIsActivityLogOpen,
         activityLogs,
         logActivity,
+        activities,
+        addActivity,
+        updateActivity,
+        deleteActivity,
+        toggleActivityComplete,
+        isAddActivityOpen,
+        setIsAddActivityOpen,
+        addActivityInitialDate,
+        setAddActivityInitialDate,
         addFamilyUser,
         updateFamilyUser,
         deleteFamilyUser,

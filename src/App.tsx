@@ -4,6 +4,7 @@ import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { DashboardView } from './components/views/DashboardView';
 import { BudgetsView } from './components/views/BudgetsView';
+import { ActivitiesView } from './components/views/ActivitiesView';
 import { TransactionsView } from './components/views/TransactionsView';
 import { BillsView } from './components/views/BillsView';
 import { GoalsView } from './components/views/GoalsView';
@@ -47,9 +48,9 @@ const AppContent: React.FC = () => {
     previewMobileOnPc,
   } = useFinance();
 
-  // Guard member views: members can only see dashboard, transactions, wallets
+  // Guard member views: members can only see dashboard, transactions, wallets, activities
   React.useEffect(() => {
-    if (currentUser?.role === 'member' && !['dashboard', 'transactions', 'wallets'].includes(activeView)) {
+    if (currentUser?.role === 'member' && !['dashboard', 'transactions', 'wallets', 'activities'].includes(activeView)) {
       setActiveView('dashboard');
     }
   }, [currentUser, activeView, setActiveView]);
@@ -124,6 +125,11 @@ const AppContent: React.FC = () => {
           title: 'Envelopes & Budgets',
           subtitle: 'Manage category spending caps and dynamically rebalance surplus funds.',
         };
+      case 'activities':
+        return {
+          title: 'Activities & Household Schedule',
+          subtitle: 'Coordinate family events, school schedules, outings, and chore rewards.',
+        };
       case 'transactions':
         return {
           title: 'Transactions',
@@ -181,8 +187,10 @@ const AppContent: React.FC = () => {
         {/* View Switcher */}
         {activeView === 'dashboard' && <DashboardView />}
         {activeView === 'budgets' && <BudgetsView />}
+        {activeView === 'activities' && <ActivitiesView />}
         {activeView === 'transactions' && <TransactionsView />}
         {activeView === 'bills' && <BillsView />}
+        {activeView === 'goals' && <GoalsView />}
         {activeView === 'reports' && (
           <React.Suspense fallback={<div className="p-8 text-center text-slate-400">Loading reports...</div>}>
             <ReportsView />

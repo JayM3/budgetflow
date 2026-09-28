@@ -41,6 +41,7 @@ import {
   ChevronDown,
   Info,
   Clock,
+  Activity,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatCurrency, formatCurrencyExact, formatDateDisplay } from '../../utils/formatters';
@@ -52,6 +53,7 @@ import { WalletsView } from '../views/WalletsView';
 import { BillsView } from '../views/BillsView';
 import { FamilyMembersView } from '../views/FamilyMembersView';
 import { SettingsView } from '../views/SettingsView';
+import { ActivitiesView } from '../views/ActivitiesView';
 
 const ReportsView = React.lazy(() =>
   import('../views/ReportsView').then((m) => ({ default: m.ReportsView }))
@@ -72,7 +74,7 @@ const categoryIconMap: Record<string, React.ComponentType<{ className?: string }
 };
 
 type MobileTab = 'home' | 'transactions' | 'budgets' | 'goals' | 'more';
-type MobileSubView = 'wallets' | 'bills' | 'reports' | 'family' | 'settings' | null;
+type MobileSubView = 'wallets' | 'bills' | 'reports' | 'family' | 'settings' | 'activities' | null;
 
 export const MobileAppLayout: React.FC = () => {
   const {
@@ -102,6 +104,7 @@ export const MobileAppLayout: React.FC = () => {
     updateCategoryAllocation,
     deviceScreen,
     displayScale,
+    activities,
   } = useFinance();
 
   const [activeTab, setActiveTab] = useState<MobileTab>('home');
@@ -370,6 +373,7 @@ export const MobileAppLayout: React.FC = () => {
               <span>Back to More Hub</span>
             </button>
 
+            {subView === 'activities' && <ActivitiesView />}
             {subView === 'wallets' && <WalletsView />}
             {subView === 'bills' && <BillsView />}
             {subView === 'family' && <FamilyMembersView />}
@@ -1122,6 +1126,24 @@ export const MobileAppLayout: React.FC = () => {
 
                 {/* Subview Navigations */}
                 <div className="bg-white dark:bg-[#131F33] rounded-3xl p-2 border border-slate-100 dark:border-[#1F304B] shadow-card divide-y divide-slate-100 dark:divide-[#1F304B] transition-colors">
+                  <button
+                    onClick={() => setSubView('activities')}
+                    className="w-full p-3.5 flex items-center justify-between text-left hover:bg-slate-50 dark:hover:bg-[#1A283E]/50 rounded-2xl transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center">
+                        <Activity className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-xs sm:text-sm text-slate-800 dark:text-white">Household Activities & Chores</h4>
+                        <p className="text-xs text-slate-400 dark:text-slate-400">
+                          {activities.length} scheduled events & tasks
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400" />
+                  </button>
+
                   <button
                     onClick={() => setSubView('wallets')}
                     className="w-full p-3.5 flex items-center justify-between text-left hover:bg-slate-50 dark:hover:bg-[#1A283E]/50 rounded-2xl transition-colors cursor-pointer"

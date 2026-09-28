@@ -88,11 +88,11 @@ export const InitialSetupModal: React.FC<InitialSetupModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
-      <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 relative overflow-hidden transition-all">
-        {/* Glow ambient */}
-        <div className="absolute -top-20 -right-20 w-48 h-48 bg-teal-400/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-20 -left-20 w-48 h-48 bg-sky-400/20 rounded-full blur-3xl pointer-events-none" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-slate-950/85 overflow-y-auto">
+      <div 
+        className="bg-white rounded-3xl max-w-lg w-full p-4 sm:p-8 shadow-2xl border border-slate-100 relative my-auto max-h-[92dvh] sm:max-h-[88vh] flex flex-col transform-gpu"
+        style={{ transform: 'translateZ(0)' }}
+      >
 
         {/* Step indicator */}
         <div className="flex items-center justify-between mb-6 relative z-10">
@@ -115,9 +115,11 @@ export const InitialSetupModal: React.FC<InitialSetupModalProps> = ({
           </span>
         </div>
 
-        {/* STEP 1: Household Name & Currency */}
-        {step === 1 && (
-          <div className="space-y-6 relative z-10">
+        {/* Scrollable Step Body */}
+        <div className="flex-1 overflow-y-auto overscroll-contain pr-1 -mr-1">
+          {/* STEP 1: Household Name & Currency */}
+          {step === 1 && (
+            <div className="space-y-6 relative z-10">
             <div className="text-center">
               <div className="w-14 h-14 mx-auto rounded-3xl bg-teal-50 text-teal-600 flex items-center justify-center mb-3 shadow-inner">
                 <Sparkles className="w-7 h-7" />
@@ -284,7 +286,7 @@ export const InitialSetupModal: React.FC<InitialSetupModalProps> = ({
 
             <PatternLock
               mode="create"
-              size={260}
+              size={typeof window !== 'undefined' && (window.innerWidth < 640 || window.innerHeight < 750) ? 210 : 250}
               minPoints={4}
               onPatternCreated={(pattern) => {
                 setAdminPattern(pattern);
@@ -393,6 +395,7 @@ export const InitialSetupModal: React.FC<InitialSetupModalProps> = ({
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

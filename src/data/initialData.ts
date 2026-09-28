@@ -7,6 +7,7 @@ import {
   UserPreferences,
   FamilyUser,
   HouseholdSettings,
+  ActivityItem,
 } from '../types/finance';
 
 /* =========================================================
@@ -45,6 +46,7 @@ export const initialTransactions: Transaction[] = [];
 export const initialBills: Bill[] = [];
 export const initialGoals: SavingsGoal[] = [];
 export const initialWallets: Wallet[] = [];
+export const initialActivities: ActivityItem[] = [];
 
 /* =========================================================
    STATIC DEMO SHOWCASE DATA (Exclusively for GitHub Pages *.github.io)
@@ -363,3 +365,104 @@ export const demoWallets: Wallet[] = [
     color: '#10B981',
   },
 ];
+
+const getRelativeDate = (dayOffset: number): string => {
+  const d = new Date();
+  d.setDate(d.getDate() + dayOffset);
+  return d.toISOString().split('T')[0];
+};
+
+export const demoActivities: ActivityItem[] = [
+  {
+    id: 'act-1',
+    title: 'Gym',
+    category: 'health',
+    date: getRelativeDate(0),
+    startTime: '07:00',
+    endTime: '08:00',
+    location: 'Home Gym',
+    isCompleted: true,
+  },
+  {
+    id: 'act-2',
+    title: 'Plan week',
+    category: 'family',
+    date: getRelativeDate(0),
+    startTime: '09:00',
+    endTime: '09:30',
+    location: 'Family Hub',
+    isCompleted: true,
+  },
+  {
+    id: 'act-3',
+    title: 'Dinner with family',
+    category: 'family',
+    date: getRelativeDate(0),
+    startTime: '18:30',
+    endTime: '20:00',
+    location: 'Home',
+    isCompleted: false,
+  },
+  {
+    id: 'act-4',
+    title: 'Movie night',
+    category: 'social',
+    date: getRelativeDate(0),
+    startTime: '20:30',
+    endTime: '22:00',
+    location: 'Living Room',
+    isCompleted: false,
+  },
+  {
+    id: 'act-5',
+    title: 'School event',
+    category: 'school',
+    date: getRelativeDate(2),
+    startTime: '15:00',
+    endTime: '17:00',
+    location: 'School Auditorium',
+    isCompleted: false,
+  },
+  {
+    id: 'act-6',
+    title: 'Doctor appointment',
+    category: 'health',
+    date: getRelativeDate(-3),
+    startTime: '10:00',
+    endTime: '11:00',
+    location: 'Family Clinic',
+    isCompleted: true,
+  },
+  {
+    id: 'act-7',
+    title: 'Birthday (Alex)',
+    category: 'social',
+    date: getRelativeDate(4),
+    allDay: true,
+    location: 'Community Park',
+    isCompleted: false,
+  },
+  {
+    id: 'act-8',
+    title: 'Grocery run',
+    category: 'family',
+    date: getRelativeDate(1),
+    startTime: '16:00',
+    endTime: '17:00',
+    location: 'Supermarket',
+    isCompleted: false,
+  },
+  {
+    id: 'act-9',
+    title: 'Clean Room & Organize Desk',
+    category: 'chores',
+    date: getRelativeDate(0),
+    startTime: '14:00',
+    endTime: '14:30',
+    notes: 'Clean floor and fold laundry',
+    isCompleted: false,
+    hasReward: true,
+    rewardAmount: 50,
+  },
+];
+

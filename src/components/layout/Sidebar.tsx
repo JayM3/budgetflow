@@ -14,6 +14,7 @@ import {
   Tablet,
   PanelLeftClose,
   PanelLeftOpen,
+  Activity,
 } from 'lucide-react';
 import logoImg from '../../assets/logo.png';
 import { useFinance, ActiveView } from '../../context/FinanceContext';
@@ -27,6 +28,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'budgets', label: 'Budgets', icon: PieChart },
+  { id: 'activities', label: 'Activities', icon: Activity },
   { id: 'transactions', label: 'Transactions', icon: ArrowLeftRight },
   { id: 'bills', label: 'Recurring', icon: CalendarDays },
   { id: 'goals', label: 'Goals', icon: Target },
@@ -82,7 +84,7 @@ export const Sidebar: React.FC = () => {
   const isMember = currentUser?.role === 'member';
   const visibleNavItems = navItems.filter((item) => {
     if (isMember) {
-      return ['dashboard', 'transactions', 'wallets'].includes(item.id);
+      return ['dashboard', 'transactions', 'wallets', 'activities'].includes(item.id);
     }
     return true;
   });
