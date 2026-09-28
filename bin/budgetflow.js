@@ -33,7 +33,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Read package version
-let version = '1.0.1.2';
+let version = '1.0.2';
 try {
   const pkgPath = path.join(ROOT_DIR, 'package.json');
   if (fs.existsSync(pkgPath)) {

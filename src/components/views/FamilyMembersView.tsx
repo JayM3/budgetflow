@@ -158,10 +158,10 @@ export const FamilyMembersView: React.FC = () => {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
           <div>
             <div className="flex items-center space-x-3 mb-1">
-              <span className="p-2.5 bg-teal-50 text-teal-600 rounded-2xl">
+              <span className="p-2.5 bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 rounded-2xl">
                 <Users className="w-6 h-6" />
               </span>
-              <h2 className="text-2xl font-bold text-slate-800">
+              <h2 className="text-2xl font-bold text-slate-800 dark:text-white">
                 Family Members & Permissions
               </h2>
               <GuideButton
@@ -169,7 +169,7 @@ export const FamilyMembersView: React.FC = () => {
                 onOpenGuide={(id) => setIsGuideOpenWithId(id)}
               />
             </div>
-            <p className="text-sm text-slate-500 max-w-2xl">
+            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-2xl">
               Control household access. Assign Admin vs. Member roles, customize which wallets each member can view or spend from, and manage 9-dot patterns.
             </p>
           </div>
@@ -181,17 +181,17 @@ export const FamilyMembersView: React.FC = () => {
                 disabled={isSaving}
                 className={`inline-flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl font-semibold text-sm border shadow-sm transition-all active:scale-95 disabled:opacity-75 ${
                   isSaved
-                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                    : 'border-slate-200 hover:border-teal-400 hover:bg-teal-50/50 text-slate-700'
+                    ? 'border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
+                    : 'border-slate-200 dark:border-[#1F304B] hover:border-teal-400 hover:bg-teal-50/50 dark:hover:bg-[#1A283E] text-slate-700 dark:text-slate-200'
                 }`}
                 title="Save family members and permissions to server"
               >
                 {isSaving ? (
-                  <RefreshCw className="w-4 h-4 animate-spin text-teal-600" />
+                  <RefreshCw className="w-4 h-4 animate-spin text-teal-600 dark:text-teal-400" />
                 ) : isSaved ? (
-                  <Check className="w-4 h-4 text-emerald-600" />
+                  <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 ) : (
-                  <Save className="w-4 h-4 text-teal-600" />
+                  <Save className="w-4 h-4 text-teal-600 dark:text-teal-400" />
                 )}
                 <span>{isSaved ? 'Saved!' : isSaving ? 'Saving...' : 'Save'}</span>
               </button>
@@ -210,8 +210,8 @@ export const FamilyMembersView: React.FC = () => {
 
       {/* Notice if logged in as Member */}
       {!isAdmin && (
-        <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200/80 text-amber-800 text-xs sm:text-sm flex items-center space-x-3">
-          <ShieldAlert className="w-5 h-5 text-amber-600 flex-shrink-0" />
+        <div className="p-4 bg-amber-50 dark:bg-amber-950/20 rounded-2xl border border-amber-200/80 dark:border-amber-800/50 text-amber-800 dark:text-amber-300 text-xs sm:text-sm flex items-center space-x-3">
+          <ShieldAlert className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
           <span>
             You are currently logged in as a <strong>Member</strong>. Only <strong>Admins</strong> can adjust wallet permissions, create members, or reset patterns.
           </span>
@@ -229,7 +229,7 @@ export const FamilyMembersView: React.FC = () => {
           return (
             <div
               key={user.id}
-              className="bg-white/90 backdrop-blur-md rounded-3xl p-6 border border-slate-200/80 shadow-sm relative overflow-hidden flex flex-col justify-between hover:shadow-md transition-shadow"
+              className="bg-white/90 dark:bg-[#131F33] backdrop-blur-md rounded-3xl p-6 border border-slate-200/80 dark:border-[#1F304B] shadow-sm relative overflow-hidden flex flex-col justify-between hover:shadow-md transition-shadow"
             >
               <div>
                 {/* User Header */}
@@ -243,11 +243,11 @@ export const FamilyMembersView: React.FC = () => {
                     </div>
                     <div>
                       <div className="flex items-center space-x-2">
-                        <h3 className="font-bold text-slate-800 text-base">
+                        <h3 className="font-bold text-slate-800 dark:text-white text-base">
                           {user.name}
                         </h3>
                         {currentUser?.id === user.id && (
-                          <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-semibold">
+                          <span className="text-[10px] bg-slate-100 dark:bg-[#0B131F] text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-md font-semibold border border-transparent dark:border-[#1F304B]">
                             You
                           </span>
                         )}
@@ -255,8 +255,8 @@ export const FamilyMembersView: React.FC = () => {
                       <span
                         className={`inline-block mt-0.5 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
                           user.role === 'admin'
-                            ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                            : 'bg-teal-100 text-teal-800 border border-teal-200'
+                            ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                            : 'bg-teal-100 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800'
                         }`}
                       >
                         {user.role}
@@ -268,14 +268,14 @@ export const FamilyMembersView: React.FC = () => {
                     <div className="flex items-center space-x-1">
                       <button
                         onClick={() => setEditingUser(user)}
-                        className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
+                        className="p-1.5 text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 rounded-lg transition-colors"
                         title="Edit permissions"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => setResetPatternUser(user)}
-                        className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                        className="p-1.5 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
                         title="Reset 9-dot pattern"
                       >
                         <KeyRound className="w-4 h-4" />
@@ -287,7 +287,7 @@ export const FamilyMembersView: React.FC = () => {
                               deleteFamilyUser(user.id);
                             }
                           }}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
                           title="Remove user"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -299,13 +299,13 @@ export const FamilyMembersView: React.FC = () => {
 
                 {/* Wallets Allowed */}
                 <div className="mb-4">
-                  <div className="flex items-center justify-between text-xs text-slate-500 font-semibold mb-2">
+                  <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-semibold mb-2">
                     <span className="flex items-center space-x-1">
-                      <Wallet className="w-3.5 h-3.5 text-teal-600" />
+                      <Wallet className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
                       <span>Accessible Wallets ({userWallets.length}):</span>
                     </span>
                     {user.role === 'admin' && (
-                      <span className="text-[10px] text-teal-700 font-bold">
+                      <span className="text-[10px] text-teal-700 dark:text-teal-400 font-bold">
                         Full Access
                       </span>
                     )}
@@ -314,7 +314,7 @@ export const FamilyMembersView: React.FC = () => {
                     {userWallets.map((w) => (
                       <span
                         key={w.id}
-                        className="text-xs px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-medium flex items-center space-x-1 border border-slate-200/70"
+                        className="text-xs px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-[#0B131F] text-slate-700 dark:text-slate-200 font-medium flex items-center space-x-1 border border-slate-200/70 dark:border-[#1F304B]"
                       >
                         <span
                           className="w-2 h-2 rounded-full"
@@ -332,10 +332,10 @@ export const FamilyMembersView: React.FC = () => {
                 </div>
 
                 {/* Permissions Badges */}
-                <div className="pt-2 border-t border-slate-100 space-y-1.5 text-xs text-slate-600">
+                <div className="pt-2 border-t border-slate-100 dark:border-[#1F304B] space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
                   <div className="flex items-center justify-between">
                     <span>Household Reports:</span>
-                    <span className="font-semibold text-slate-800">
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
                       {user.role === 'admin' || user.permissions.canViewHouseholdReports
                         ? 'Household'
                         : 'Personal Only'}
@@ -343,13 +343,13 @@ export const FamilyMembersView: React.FC = () => {
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Manage Bills:</span>
-                    <span className="font-semibold text-slate-800">
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
                       {user.role === 'admin' || user.permissions.canAddBills ? 'Yes' : 'No'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Savings Goals:</span>
-                    <span className="font-semibold text-slate-800">
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
                       {user.role === 'admin' || user.permissions.canAddGoals ? 'Yes' : 'No'}
                     </span>
                   </div>
@@ -357,12 +357,12 @@ export const FamilyMembersView: React.FC = () => {
               </div>
 
               {/* Pattern Lock Status Footer */}
-              <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+              <div className="mt-5 pt-3 border-t border-slate-100 dark:border-[#1F304B] flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                 <span className="flex items-center space-x-1">
-                  <Lock className="w-3.5 h-3.5 text-emerald-600" />
+                  <Lock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                   <span>9-Dot Pattern:</span>
                 </span>
-                <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full text-[11px]">
+                <span className="font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full text-[11px] border border-transparent dark:border-emerald-800">
                   Protected ✓
                 </span>
               </div>
@@ -373,15 +373,15 @@ export const FamilyMembersView: React.FC = () => {
 
       {/* ADD MEMBER MODAL */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 relative overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/75 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-[#131F33] rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 dark:border-[#1F304B] relative overflow-hidden">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-slate-800">
+              <h3 className="text-xl font-bold text-slate-800 dark:text-white">
                 Add Family Member
               </h3>
               <button
                 onClick={() => setIsAddModalOpen(false)}
-                className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
+                className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -390,7 +390,7 @@ export const FamilyMembersView: React.FC = () => {
             {!patternStep ? (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1">
                     Member Name
                   </label>
                   <input
@@ -398,19 +398,19 @@ export const FamilyMembersView: React.FC = () => {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="e.g. Alex (Teen)"
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-400 font-medium text-slate-800"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-[#1F304B] bg-white dark:bg-[#0B131F] focus:outline-none focus:ring-2 focus:ring-teal-400 font-medium text-slate-800 dark:text-white"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1">
                       Role
                     </label>
                     <select
                       value={role}
                       onChange={(e) => setRole(e.target.value as UserRole)}
-                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-400 font-medium text-slate-800 bg-white"
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-[#1F304B] focus:outline-none focus:ring-2 focus:ring-teal-400 font-medium text-slate-800 dark:text-white bg-white dark:bg-[#0B131F]"
                     >
                       <option value="member">Member (Restricted)</option>
                       <option value="admin">Admin (Full Control)</option>
@@ -418,7 +418,7 @@ export const FamilyMembersView: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1">
                       Accent Color
                     </label>
                     <div className="flex items-center space-x-1.5 pt-1.5">
@@ -438,7 +438,7 @@ export const FamilyMembersView: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1">
                     Avatar
                   </label>
                   <div className="flex flex-wrap gap-1.5">
@@ -450,7 +450,7 @@ export const FamilyMembersView: React.FC = () => {
                         className={`w-9 h-9 rounded-xl text-lg flex items-center justify-center transition-all ${
                           avatar === emoji
                             ? 'bg-teal-500 text-white shadow-md'
-                            : 'bg-slate-100 hover:bg-slate-200'
+                            : 'bg-slate-100 dark:bg-[#0B131F] hover:bg-slate-200 dark:hover:bg-slate-800'
                         }`}
                       >
                         {emoji}
@@ -461,7 +461,7 @@ export const FamilyMembersView: React.FC = () => {
 
                 {role === 'member' && (
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1">
                       Accessible Wallets
                     </label>
                     <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
@@ -472,11 +472,11 @@ export const FamilyMembersView: React.FC = () => {
                             key={w.id}
                             className={`flex items-center justify-between p-2 rounded-xl border cursor-pointer transition-colors ${
                               checked
-                                ? 'bg-teal-50/60 border-teal-300'
-                                : 'bg-slate-50 border-slate-200'
+                                ? 'bg-teal-50/60 dark:bg-teal-900/30 border-teal-300 dark:border-teal-700'
+                                : 'bg-slate-50 dark:bg-[#0B131F] border-slate-200 dark:border-[#1F304B]'
                             }`}
                           >
-                            <span className="flex items-center space-x-2 text-xs font-semibold text-slate-700">
+                            <span className="flex items-center space-x-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
                               <span
                                 className="w-2.5 h-2.5 rounded-full"
                                 style={{ backgroundColor: w.color }}
@@ -495,7 +495,7 @@ export const FamilyMembersView: React.FC = () => {
                                   );
                                 }
                               }}
-                              className="rounded text-teal-600 focus:ring-teal-400"
+                              className="rounded text-teal-600 focus:ring-teal-400 bg-white dark:bg-[#0B131F] border-slate-300 dark:border-[#1F304B]"
                             />
                           </label>
                         );
@@ -535,15 +535,15 @@ export const FamilyMembersView: React.FC = () => {
 
       {/* EDIT MEMBER MODAL */}
       {editingUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 relative overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/75 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-[#131F33] rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 dark:border-[#1F304B] relative overflow-hidden">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-slate-800">
+              <h3 className="text-xl font-bold text-slate-800 dark:text-white">
                 Edit Permissions: {editingUser.name}
               </h3>
               <button
                 onClick={() => setEditingUser(null)}
-                className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
+                className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -551,7 +551,7 @@ export const FamilyMembersView: React.FC = () => {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1">
                   Name
                 </label>
                 <input
@@ -560,12 +560,12 @@ export const FamilyMembersView: React.FC = () => {
                   onChange={(e) =>
                     setEditingUser({ ...editingUser, name: e.target.value })
                   }
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 font-medium text-slate-800"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-[#1F304B] bg-white dark:bg-[#0B131F] font-medium text-slate-800 dark:text-white"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1">
                   Role
                 </label>
                 <select
@@ -597,7 +597,7 @@ export const FamilyMembersView: React.FC = () => {
                               : (allWallets[0] ? [allWallets[0].id] : [])),
                     });
                   }}
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 font-medium text-slate-800 bg-white"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-[#1F304B] font-medium text-slate-800 dark:text-white bg-white dark:bg-[#0B131F]"
                 >
                   <option value="member">Member</option>
                   <option value="admin">Admin</option>
@@ -606,7 +606,7 @@ export const FamilyMembersView: React.FC = () => {
 
               {editingUser.role === 'member' && (
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1">
                     Allowed Wallets (Member can only see & spend from checked wallets)
                   </label>
                   <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
@@ -617,11 +617,11 @@ export const FamilyMembersView: React.FC = () => {
                           key={w.id}
                           className={`flex items-center justify-between p-2 rounded-xl border cursor-pointer transition-colors ${
                             checked
-                              ? 'bg-teal-50/60 border-teal-300'
-                              : 'bg-slate-50 border-slate-200'
+                              ? 'bg-teal-50/60 dark:bg-teal-900/30 border-teal-300 dark:border-teal-700'
+                              : 'bg-slate-50 dark:bg-[#0B131F] border-slate-200 dark:border-[#1F304B]'
                           }`}
                         >
-                          <span className="flex items-center space-x-2 text-xs font-semibold text-slate-700">
+                          <span className="flex items-center space-x-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
                             <span
                               className="w-2.5 h-2.5 rounded-full"
                               style={{ backgroundColor: w.color }}
@@ -642,7 +642,7 @@ export const FamilyMembersView: React.FC = () => {
                                 allowedWalletIds: newAllowed,
                               });
                             }}
-                            className="rounded text-teal-600 focus:ring-teal-400"
+                            className="rounded text-teal-600 focus:ring-teal-400 bg-white dark:bg-[#0B131F] border-slate-300 dark:border-[#1F304B]"
                           />
                         </label>
                       );
@@ -655,7 +655,7 @@ export const FamilyMembersView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setEditingUser(null)}
-                  className="w-1/3 py-2.5 border border-slate-200 rounded-xl text-slate-600 font-semibold"
+                  className="w-1/3 py-2.5 border border-slate-200 dark:border-[#1F304B] rounded-xl text-slate-600 dark:text-slate-300 font-semibold hover:bg-slate-50 dark:hover:bg-[#1A283E]"
                 >
                   Cancel
                 </button>
@@ -674,15 +674,15 @@ export const FamilyMembersView: React.FC = () => {
 
       {/* RESET PATTERN MODAL */}
       {resetPatternUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-100 relative overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/75 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-[#131F33] rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-100 dark:border-[#1F304B] relative overflow-hidden">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-slate-800">
+              <h3 className="text-lg font-bold text-slate-800 dark:text-white">
                 Reset Pattern for {resetPatternUser.name}
               </h3>
               <button
                 onClick={() => setResetPatternUser(null)}
-                className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
+                className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 <X className="w-5 h-5" />
               </button>

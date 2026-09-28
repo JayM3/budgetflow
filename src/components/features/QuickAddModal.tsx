@@ -136,8 +136,8 @@ export const QuickAddModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 select-none">
-      <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl border border-slate-100 overflow-hidden text-slate-800">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/75 backdrop-blur-sm animate-in fade-in duration-200 select-none">
+      <div className="bg-white dark:bg-[#131F33] rounded-3xl w-full max-w-lg shadow-2xl border border-slate-100 dark:border-[#1F304B] overflow-hidden text-slate-800 dark:text-slate-100">
         {/* Header */}
         <div className="p-5 sm:p-6 bg-gradient-to-r from-teal-600 via-cyan-600 to-sky-600 text-white flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -173,22 +173,22 @@ export const QuickAddModal: React.FC = () => {
         </div>
 
         {/* User Presence & Type Bar */}
-        <div className="px-6 py-2.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-xs">
-          <span className="text-slate-500 flex items-center space-x-1.5">
+        <div className="px-6 py-2.5 bg-slate-50 dark:bg-[#0B131F] border-b border-slate-100 dark:border-[#1F304B] flex items-center justify-between text-xs">
+          <span className="text-slate-500 dark:text-slate-400 flex items-center space-x-1.5">
             <span>Logging for:</span>
-            <strong className="text-slate-800 flex items-center space-x-1 font-semibold">
+            <strong className="text-slate-800 dark:text-white flex items-center space-x-1 font-semibold">
               <span>{currentUser?.avatar || '👤'}</span>
               <span>{currentUser?.name || preferences.userName}</span>
             </strong>
           </span>
 
           {/* Expense / Income Toggle */}
-          <div className="flex bg-slate-200/80 p-0.5 rounded-lg text-[11px] font-bold">
+          <div className="flex bg-slate-200/80 dark:bg-[#1A283E] p-0.5 rounded-lg text-[11px] font-bold">
             <button
               type="button"
               onClick={() => setType('expense')}
               className={`px-2.5 py-1 rounded-md transition-all ${
-                type === 'expense' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                type === 'expense' ? 'bg-white dark:bg-[#131F33] text-slate-900 dark:text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               Expense
@@ -197,7 +197,7 @@ export const QuickAddModal: React.FC = () => {
               type="button"
               onClick={() => setType('income')}
               className={`px-2.5 py-1 rounded-md transition-all ${
-                type === 'income' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                type === 'income' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               Income
@@ -209,8 +209,8 @@ export const QuickAddModal: React.FC = () => {
         {step === 1 && (
           <div className="p-6 space-y-5">
             {/* Amount Display with Currency */}
-            <div className="text-center py-2 bg-slate-50/80 rounded-3xl border border-slate-100 p-4">
-              <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 block mb-1">
+            <div className="text-center py-2 bg-slate-50/80 dark:bg-[#0B131F] rounded-3xl border border-slate-100 dark:border-[#1F304B] p-4">
+              <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-400 block mb-1">
                 Total Amount ({preferences.currency})
               </span>
               <div className="flex items-center justify-center gap-2">
@@ -224,9 +224,9 @@ export const QuickAddModal: React.FC = () => {
                     setAmount(isNaN(val) ? 0 : Math.max(0, val));
                   }}
                   placeholder="0"
-                  className="text-4xl sm:text-5xl font-black text-slate-900 tracking-tight text-center max-w-[240px] bg-transparent focus:outline-none focus:ring-0"
+                  className="text-4xl sm:text-5xl font-black text-slate-900 dark:text-white tracking-tight text-center max-w-[240px] bg-transparent focus:outline-none focus:ring-0"
                 />
-                <span className="text-xl sm:text-2xl font-extrabold text-teal-600">
+                <span className="text-xl sm:text-2xl font-extrabold text-teal-600 dark:text-teal-400">
                   {preferences.currencySymbol}
                 </span>
               </div>
@@ -245,7 +245,7 @@ export const QuickAddModal: React.FC = () => {
                     type="button"
                     onClick={() => handleAdjustAmount(-val)}
                     disabled={amount <= 0}
-                    className="flex-1 max-w-[68px] py-2 bg-rose-50 hover:bg-rose-100 active:scale-95 disabled:opacity-30 disabled:pointer-events-none text-rose-700 font-bold text-xs rounded-xl border border-rose-200 transition-all flex items-center justify-center gap-0.5"
+                    className="flex-1 max-w-[68px] py-2 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/40 active:scale-95 disabled:opacity-30 disabled:pointer-events-none text-rose-700 dark:text-rose-300 font-bold text-xs rounded-xl border border-rose-200 dark:border-rose-800/60 transition-all flex items-center justify-center gap-0.5"
                   >
                     <Minus className="w-3 h-3" />
                     <span>{val}</span>
@@ -263,7 +263,7 @@ export const QuickAddModal: React.FC = () => {
                     key={`plus-${val}`}
                     type="button"
                     onClick={() => handleAdjustAmount(val)}
-                    className="flex-1 max-w-[68px] py-2 bg-emerald-50 hover:bg-emerald-100 active:scale-95 text-emerald-800 font-bold text-xs rounded-xl border border-emerald-200 transition-all flex items-center justify-center gap-0.5"
+                    className="flex-1 max-w-[68px] py-2 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 active:scale-95 text-emerald-800 dark:text-emerald-300 font-bold text-xs rounded-xl border border-emerald-200 dark:border-emerald-800/60 transition-all flex items-center justify-center gap-0.5"
                   >
                     <Plus className="w-3 h-3" />
                     <span>{val}</span>
@@ -277,7 +277,7 @@ export const QuickAddModal: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleResetAmount}
-                    className="text-[11px] font-semibold text-slate-400 hover:text-slate-600 inline-flex items-center gap-1"
+                    className="text-[11px] font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 inline-flex items-center gap-1"
                   >
                     <RotateCcw className="w-3 h-3" />
                     <span>Reset to 0</span>
@@ -288,7 +288,7 @@ export const QuickAddModal: React.FC = () => {
 
             {/* Merchant / Description (Optional) */}
             <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
                 {type === 'income' ? 'Income Source / Description (Optional)' : 'Merchant or Item (Optional)'}
               </label>
               <input
@@ -296,7 +296,7 @@ export const QuickAddModal: React.FC = () => {
                 value={merchant}
                 onChange={(e) => setMerchant(e.target.value)}
                 placeholder={type === 'income' ? 'e.g. Salary, Client payment, Bonus' : 'e.g. Rema 1000, Starbucks, Gas'}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-400 text-xs font-semibold text-slate-800"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-[#1F304B] bg-white dark:bg-[#0B131F] focus:outline-none focus:ring-2 focus:ring-teal-400 text-xs font-semibold text-slate-800 dark:text-white"
               />
             </div>
 
@@ -307,32 +307,32 @@ export const QuickAddModal: React.FC = () => {
                   type="checkbox"
                   checked={hasDate}
                   onChange={(e) => setHasDate(e.target.checked)}
-                  className="w-4 h-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500 cursor-pointer accent-teal-600"
+                  className="w-4 h-4 rounded border-slate-300 dark:border-[#1F304B] text-teal-600 focus:ring-teal-500 cursor-pointer accent-teal-600"
                 />
-                <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-teal-600" />
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
                   <span>Specify date (happened or upcoming)</span>
                 </span>
               </label>
 
               {hasDate && (
-                <div className="mt-2.5 p-3 bg-slate-50 rounded-2xl border border-slate-200/80 animate-in fade-in slide-in-from-top-1 duration-150 space-y-2">
+                <div className="mt-2.5 p-3 bg-slate-50 dark:bg-[#0B131F] rounded-2xl border border-slate-200/80 dark:border-[#1F304B] animate-in fade-in slide-in-from-top-1 duration-150 space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       Transaction Date
                     </span>
                     {isFutureDate && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-800 border border-cyan-200 flex items-center gap-1">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-950/40 text-cyan-800 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800 flex items-center gap-1">
                         <span>⏳ Will happen / Scheduled</span>
                       </span>
                     )}
                     {isPastDate && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-1">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 flex items-center gap-1">
                         <span>🕒 Happened</span>
                       </span>
                     )}
                     {isTodayDate && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
                         <span>✓ Today</span>
                       </span>
                     )}
@@ -341,7 +341,7 @@ export const QuickAddModal: React.FC = () => {
                     type="date"
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-400"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-[#1F304B] bg-white dark:bg-[#131F33] text-xs font-semibold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-400"
                   />
                   <p className="text-[11px] text-slate-400 font-medium">
                     {isFutureDate
@@ -352,20 +352,20 @@ export const QuickAddModal: React.FC = () => {
                   </p>
 
                   {/* Already happened toggle */}
-                  <div className="pt-2 border-t border-slate-200/60">
+                  <div className="pt-2 border-t border-slate-200/60 dark:border-[#1F304B]">
                     <label className="flex items-start gap-2.5 cursor-pointer select-none">
                       <input
                         type="checkbox"
                         checked={alreadyHappened}
                         onChange={(e) => setAlreadyHappened(e.target.checked)}
-                        className="w-4 h-4 mt-0.5 rounded border-slate-300 text-amber-600 focus:ring-amber-500 cursor-pointer accent-amber-600"
+                        className="w-4 h-4 mt-0.5 rounded border-slate-300 dark:border-[#1F304B] text-amber-600 focus:ring-amber-500 cursor-pointer accent-amber-600"
                       />
                       <div>
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-xs font-bold text-slate-800">
+                          <span className="text-xs font-bold text-slate-800 dark:text-white">
                             Already happened
                           </span>
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-200">
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/40 text-amber-900 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
                             Won't minus wallet balance
                           </span>
                         </div>
@@ -389,7 +389,7 @@ export const QuickAddModal: React.FC = () => {
                   setHasDate(false);
                   setAlreadyHappened(false);
                 }}
-                className="px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800"
+                className="px-4 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
               >
                 Cancel
               </button>
@@ -410,16 +410,16 @@ export const QuickAddModal: React.FC = () => {
         {step === 2 && (
           <div className="p-6 space-y-5 animate-in fade-in duration-150">
             {/* Amount Summary Pill */}
-            <div className="p-3 bg-teal-50 rounded-2xl border border-teal-200/80 flex items-center justify-between">
+            <div className="p-3 bg-teal-50 dark:bg-teal-950/30 rounded-2xl border border-teal-200/80 dark:border-teal-800/60 flex items-center justify-between">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-bold text-teal-800 uppercase tracking-wider">
+                <span className="text-xs font-bold text-teal-800 dark:text-teal-300 uppercase tracking-wider">
                   Amount:
                 </span>
-                <span className="text-lg font-black text-slate-900">
+                <span className="text-lg font-black text-slate-900 dark:text-white">
                   {formatCurrencyExact(amount, preferences.currencySymbol)}
                 </span>
                 {merchant && (
-                  <span className="text-xs text-slate-500 font-medium truncate max-w-[140px]">
+                  <span className="text-xs text-slate-500 dark:text-slate-400 font-medium truncate max-w-[140px]">
                     ({merchant})
                   </span>
                 )}
@@ -427,10 +427,10 @@ export const QuickAddModal: React.FC = () => {
                   <span
                     className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                       isFutureDate
-                        ? 'bg-cyan-100 text-cyan-800 border-cyan-200'
+                        ? 'bg-cyan-100 dark:bg-cyan-950/40 text-cyan-800 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800'
                         : isPastDate
-                        ? 'bg-amber-100 text-amber-800 border-amber-200'
-                        : 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                        ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                        : 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
                     }`}
                   >
                     {isFutureDate ? '⏳ Upcoming: ' : isPastDate ? '🕒 Past: ' : '📅 '}
@@ -438,7 +438,7 @@ export const QuickAddModal: React.FC = () => {
                   </span>
                 )}
                 {(alreadyHappened || (hasDate && isPastDate)) && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-900 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
                     🕒 Historical • Wallet unchanged
                   </span>
                 )}
@@ -446,7 +446,7 @@ export const QuickAddModal: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="text-xs font-bold text-teal-700 hover:underline shrink-0"
+                className="text-xs font-bold text-teal-700 dark:text-teal-400 hover:underline shrink-0"
               >
                 Change
               </button>
@@ -455,7 +455,7 @@ export const QuickAddModal: React.FC = () => {
             {/* CATEGORIES BUTTONS GRID - Only for Expense */}
             {type === 'expense' && (
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
                   1. Select Category
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[160px] overflow-y-auto pr-1">
@@ -469,8 +469,8 @@ export const QuickAddModal: React.FC = () => {
                         onClick={() => setCategory(c.name)}
                         className={`p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all ${
                           isSelected
-                            ? 'border-teal-500 bg-teal-50/80 ring-2 ring-teal-400 text-teal-950 font-bold shadow-xs'
-                            : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 font-medium'
+                            ? 'border-teal-500 bg-teal-50/80 dark:bg-teal-950/50 ring-2 ring-teal-400 text-teal-950 dark:text-teal-200 font-bold shadow-xs'
+                            : 'border-slate-200 dark:border-[#1F304B] hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-[#1A283E] text-slate-700 dark:text-slate-200 font-medium'
                         }`}
                       >
                         <div
@@ -492,7 +492,7 @@ export const QuickAddModal: React.FC = () => {
 
             {/* FAMILY CHECKING / WALLET BUTTONS */}
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
                 {type === 'expense' ? '2. Select Account / Wallet' : 'Select Receiving Account / Wallet'}
               </label>
               <div className="grid grid-cols-2 gap-2">
@@ -506,9 +506,9 @@ export const QuickAddModal: React.FC = () => {
                       className={`p-2.5 rounded-xl border text-left flex items-center gap-2.5 transition-all ${
                         isSelected
                           ? type === 'income'
-                            ? 'border-emerald-500 bg-emerald-50/80 ring-2 ring-emerald-400 text-emerald-950 font-bold shadow-xs'
-                            : 'border-teal-500 bg-teal-50/80 ring-2 ring-teal-400 text-teal-950 font-bold shadow-xs'
-                          : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 font-medium'
+                            ? 'border-emerald-500 bg-emerald-50/80 dark:bg-emerald-950/50 ring-2 ring-emerald-400 text-emerald-950 dark:text-emerald-200 font-bold shadow-xs'
+                            : 'border-teal-500 bg-teal-50/80 dark:bg-teal-950/50 ring-2 ring-teal-400 text-teal-950 dark:text-teal-200 font-bold shadow-xs'
+                          : 'border-slate-200 dark:border-[#1F304B] hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-[#1A283E] text-slate-700 dark:text-slate-200 font-medium'
                       }`}
                     >
                       <div
@@ -519,7 +519,7 @@ export const QuickAddModal: React.FC = () => {
                       </div>
                       <div className="min-w-0">
                         <span className="text-xs block truncate">{w.name}</span>
-                        <span className="text-[10px] text-slate-400 block uppercase font-semibold">
+                        <span className="text-[10px] text-slate-400 dark:text-slate-400 block uppercase font-semibold">
                           {w.type}
                         </span>
                       </div>
@@ -534,7 +534,7 @@ export const QuickAddModal: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 flex items-center gap-1"
+                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Back to Amount</span>

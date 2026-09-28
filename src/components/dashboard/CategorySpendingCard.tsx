@@ -35,15 +35,15 @@ export const CategorySpendingCard: React.FC = () => {
   const maxAmount = Math.max(...displayCategories.map(c => Math.max(c.spent, c.allocated)), 1);
 
   return (
-    <div className="bg-white rounded-3xl p-6 border border-slate-100/80 shadow-card flex flex-col justify-between">
+    <div className="bg-white dark:bg-[#131F33] rounded-3xl p-6 border border-slate-100/80 dark:border-[#1F304B] shadow-card flex flex-col justify-between transition-colors">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-base font-bold text-slate-800 tracking-tight">
+        <h2 className="text-base font-bold text-slate-800 dark:text-white tracking-tight">
           Spending by Category
         </h2>
         <button
           onClick={() => setActiveView(isMember ? 'transactions' : 'budgets')}
-          className="text-xs font-semibold text-cyan-600 hover:text-cyan-700 transition-colors"
+          className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 transition-colors"
         >
           View all
         </button>
@@ -58,12 +58,12 @@ export const CategorySpendingCard: React.FC = () => {
           return (
             <div key={cat.id} className="flex flex-col items-center group cursor-pointer">
               {/* Amount Label on top */}
-              <span className="text-xs font-bold text-slate-700 mb-2 transition-transform group-hover:-translate-y-1">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-200 mb-2 transition-transform group-hover:-translate-y-1">
                 {formatCurrency(cat.spent, preferences.currencySymbol)}
               </span>
 
               {/* Bar Pillar */}
-              <div className="w-full max-w-[48px] h-32 bg-slate-100/70 rounded-2xl p-1 flex items-end relative overflow-hidden">
+              <div className="w-full max-w-[48px] h-32 bg-slate-100/70 dark:bg-[#1A283E] rounded-2xl p-1 flex items-end relative overflow-hidden">
                 <div
                   className="w-full rounded-xl transition-all duration-700 ease-out shadow-sm group-hover:brightness-105"
                   style={{
@@ -77,7 +77,7 @@ export const CategorySpendingCard: React.FC = () => {
               <div
                 className="mt-3.5 w-8 h-8 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110"
                 style={{
-                  backgroundColor: `${cat.color}15`,
+                  backgroundColor: `${cat.color}20`,
                   color: cat.color,
                 }}
               >
@@ -85,7 +85,7 @@ export const CategorySpendingCard: React.FC = () => {
               </div>
 
               {/* Category Name */}
-              <span className="text-[11px] font-medium text-slate-500 mt-1 text-center truncate max-w-[64px]">
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-1 text-center truncate max-w-[64px]">
                 {cat.name}
               </span>
             </div>

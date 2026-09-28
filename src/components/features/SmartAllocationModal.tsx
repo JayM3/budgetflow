@@ -73,8 +73,8 @@ export const SmartAllocationModal: React.FC = () => {
   const isIncome = smartAllocationConfig.source === 'income';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 select-none">
-      <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl border border-slate-100 overflow-hidden text-slate-800 flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/75 backdrop-blur-sm animate-in fade-in duration-200 select-none">
+      <div className="bg-white dark:bg-[#131F33] rounded-3xl w-full max-w-lg shadow-2xl border border-slate-100 dark:border-[#1F304B] overflow-hidden text-slate-800 dark:text-slate-100 flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="p-5 sm:p-6 bg-gradient-to-r from-teal-600 via-cyan-600 to-sky-600 text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -101,12 +101,12 @@ export const SmartAllocationModal: React.FC = () => {
         {/* Scrollable Content */}
         <form onSubmit={handleConfirm} className="p-5 sm:p-6 overflow-y-auto space-y-5">
           {/* Amount to Allocate Section */}
-          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-3">
+          <div className="bg-slate-50 dark:bg-[#0B131F] p-4 rounded-2xl border border-slate-100 dark:border-[#1F304B] space-y-3">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-600">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
                 Amount to Allocate into Goals
               </label>
-              <span className="text-[11px] font-semibold text-slate-400">
+              <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-400">
                 Total Base: {formatCurrency(smartAllocationConfig.defaultAmount, preferences.currencySymbol)}
               </span>
             </div>
@@ -119,7 +119,7 @@ export const SmartAllocationModal: React.FC = () => {
                 required
                 value={allocAmount || ''}
                 onChange={(e) => setAllocAmount(Math.max(0, parseFloat(e.target.value) || 0))}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-xl font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 bg-white"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-[#1F304B] text-xl font-black text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 bg-white dark:bg-[#131F33]"
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">
                 {preferences.currencySymbol}
@@ -139,8 +139,8 @@ export const SmartAllocationModal: React.FC = () => {
                         onClick={() => handlePresetPercent(pct)}
                         className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all ${
                           isRec
-                            ? 'bg-cyan-100/80 border border-cyan-300 text-cyan-900 hover:bg-cyan-200/80'
-                            : 'bg-white border border-slate-200 hover:border-slate-300 text-slate-700'
+                            ? 'bg-cyan-100/80 dark:bg-cyan-950/60 border border-cyan-300 dark:border-cyan-700 text-cyan-900 dark:text-cyan-300 hover:bg-cyan-200/80'
+                            : 'bg-white dark:bg-[#131F33] border border-slate-200 dark:border-[#1F304B] hover:border-slate-300 text-slate-700 dark:text-slate-200'
                         }`}
                       >
                         {pct}%{isRec ? ' ★' : ''}
@@ -159,8 +159,8 @@ export const SmartAllocationModal: React.FC = () => {
                         onClick={() => handlePresetPercent(pct)}
                         className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all ${
                           isFull
-                            ? 'bg-cyan-100/80 border border-cyan-300 text-cyan-900 hover:bg-cyan-200/80'
-                            : 'bg-white border border-slate-200 hover:border-slate-300 text-slate-700'
+                            ? 'bg-cyan-100/80 dark:bg-cyan-950/60 border border-cyan-300 dark:border-cyan-700 text-cyan-900 dark:text-cyan-300 hover:bg-cyan-200/80'
+                            : 'bg-white dark:bg-[#131F33] border border-slate-200 dark:border-[#1F304B] hover:border-slate-300 text-slate-700 dark:text-slate-200'
                         }`}
                       >
                         {pct}%{isFull ? ' ★ Full' : ''}
@@ -174,14 +174,14 @@ export const SmartAllocationModal: React.FC = () => {
 
           {/* Source Wallet Selection */}
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1.5">
               Source Wallet / Account (Funding from)
             </label>
             <div className="relative">
               <select
                 value={selectedWalletId}
                 onChange={(e) => setSelectedWalletId(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-[#1F304B] text-xs font-bold text-slate-900 dark:text-white bg-white dark:bg-[#0B131F] focus:outline-none focus:ring-2 focus:ring-cyan-500"
               >
                 {wallets.map((w) => (
                   <option key={w.id} value={w.id}>
@@ -191,7 +191,7 @@ export const SmartAllocationModal: React.FC = () => {
               </select>
             </div>
             {selectedSourceWallet && (
-              <p className="text-[11px] text-slate-400 mt-1">
+              <p className="text-[11px] text-slate-400 dark:text-slate-400 mt-1">
                 Available balance: {formatCurrency(selectedSourceWallet.balance, preferences.currencySymbol)}
               </p>
             )}
@@ -200,17 +200,17 @@ export const SmartAllocationModal: React.FC = () => {
           {/* Jars Allocation Breakdown Preview */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
                 Target Savings Jars Breakdown
               </span>
-              <span className="text-[11px] font-bold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded-full border border-cyan-100">
+              <span className="text-[11px] font-bold text-cyan-700 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-900/40 px-2 py-0.5 rounded-full border border-cyan-100 dark:border-cyan-800">
                 Total Allocation: {totalAllocPct}%
               </span>
             </div>
 
             {activeGoals.length === 0 ? (
-              <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
+              <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 text-amber-900 dark:text-amber-300 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
                 <span>
                   No goals currently have an allocation percentage configured. Edit your goals in the Goals tab to set their % share!
                 </span>
@@ -227,7 +227,7 @@ export const SmartAllocationModal: React.FC = () => {
                   return (
                     <div
                       key={goal.id}
-                      className="p-3.5 rounded-2xl bg-white border border-slate-100 shadow-sm space-y-2"
+                      className="p-3.5 rounded-2xl bg-white dark:bg-[#0B131F] border border-slate-100 dark:border-[#1F304B] shadow-sm space-y-2"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -235,13 +235,13 @@ export const SmartAllocationModal: React.FC = () => {
                             className="w-3 h-3 rounded-full shrink-0"
                             style={{ backgroundColor: goal.color }}
                           />
-                          <span className="text-xs font-bold text-slate-900">{goal.name}</span>
-                          <span className="text-[10px] font-extrabold text-cyan-800 bg-cyan-50 px-1.5 py-0.5 rounded-md">
+                          <span className="text-xs font-bold text-slate-900 dark:text-white">{goal.name}</span>
+                          <span className="text-[10px] font-extrabold text-cyan-800 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-900/40 px-1.5 py-0.5 rounded-md">
                             {goal.allocationPercentage}%
                           </span>
                         </div>
                         <div className="text-right">
-                          <span className="text-xs font-black text-emerald-600 block">
+                          <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 block">
                             +{formatCurrency(shareAmount, preferences.currencySymbol)}
                           </span>
                         </div>
@@ -251,14 +251,14 @@ export const SmartAllocationModal: React.FC = () => {
                       <div className="flex items-center justify-between text-[11px] text-slate-400">
                         <span>
                           {formatCurrency(goal.currentAmount, preferences.currencySymbol)} →{' '}
-                          <span className="font-bold text-slate-800">
+                          <span className="font-bold text-slate-800 dark:text-slate-200">
                             {formatCurrency(newCurrent, preferences.currencySymbol)}
                           </span>{' '}
                           ({newPct}%)
                         </span>
                         {targetWallet ? (
-                          <span className="flex items-center gap-1 text-[10px] font-semibold text-slate-500">
-                            <WalletIcon className="w-3 h-3 text-cyan-600" />
+                          <span className="flex items-center gap-1 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                            <WalletIcon className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
                             {targetWallet.name}
                           </span>
                         ) : (
@@ -266,7 +266,7 @@ export const SmartAllocationModal: React.FC = () => {
                         )}
                       </div>
 
-                      <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                      <div className="w-full bg-slate-100 dark:bg-[#1A283E] h-1.5 rounded-full overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all duration-500"
                           style={{
@@ -282,7 +282,7 @@ export const SmartAllocationModal: React.FC = () => {
             )}
 
             {totalAllocPct < 100 && (
-              <p className="text-[11px] text-slate-500 italic px-1">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 italic px-1">
                 Note: Goals sum to {totalAllocPct}%. The remaining {100 - totalAllocPct}% (
                 {formatCurrency(
                   Math.round(allocAmount * ((100 - totalAllocPct) / 100) * 100) / 100,
@@ -294,11 +294,11 @@ export const SmartAllocationModal: React.FC = () => {
           </div>
 
           {/* Footer Actions */}
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
+          <div className="pt-3 border-t border-slate-100 dark:border-[#1F304B] flex items-center justify-end gap-3">
             <button
               type="button"
               onClick={closeSmartAllocation}
-              className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50"
+              className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-[#1F304B] text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#1A283E]"
             >
               Skip for Now
             </button>

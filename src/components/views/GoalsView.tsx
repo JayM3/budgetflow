@@ -267,29 +267,29 @@ export const GoalsView: React.FC = () => {
       </div>
 
       {/* Top Allocation Distribution Bar & Month-End Action */}
-      <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-card space-y-4">
+      <div className="bg-white dark:bg-[#131F33] rounded-3xl p-5 border border-slate-100 dark:border-[#1F304B] shadow-card space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <span className="p-1.5 rounded-lg bg-cyan-50 text-cyan-700">
+              <span className="p-1.5 rounded-lg bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400">
                 <Percent className="w-4 h-4" />
               </span>
-              <h3 className="text-sm font-bold text-slate-900">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                 Savings Allocation Distribution
               </h3>
               <span
                 className={`text-xs font-black px-2 py-0.5 rounded-full ${
                   totalAllocPct === 100
-                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
                     : totalAllocPct > 100
-                    ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                    : 'bg-cyan-50 text-cyan-700 border border-cyan-200'
+                    ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800'
+                    : 'bg-cyan-50 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-800'
                 }`}
               >
                 {totalAllocPct}% / 100%
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               {totalAllocPct === 100
                 ? 'All savings pools are 100% balanced across your goals.'
                 : totalAllocPct < 100
@@ -303,10 +303,10 @@ export const GoalsView: React.FC = () => {
               <button
                 type="button"
                 onClick={handleAutoBalance}
-                className="px-3.5 py-2 rounded-xl border border-slate-200 hover:border-cyan-400 hover:bg-cyan-50 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5"
+                className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-[#1F304B] hover:border-cyan-400 dark:hover:border-cyan-500 hover:bg-cyan-50 dark:hover:bg-[#1A283E] text-slate-700 dark:text-slate-200 text-xs font-bold transition-all flex items-center gap-1.5"
                 title="Normalize goal percentages to exactly 100%"
               >
-                <RefreshCw className="w-3.5 h-3.5 text-cyan-600" />
+                <RefreshCw className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
                 <span>Auto-Balance 100%</span>
               </button>
             )}
@@ -326,7 +326,7 @@ export const GoalsView: React.FC = () => {
 
         {/* Multi-segment allocation distribution bar */}
         {goals.length > 0 && (
-          <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden flex">
+          <div className="w-full bg-slate-100 dark:bg-[#1A283E] h-3 rounded-full overflow-hidden flex">
             {goals.map((g) => {
               const pct = g.allocationPercentage || 0;
               if (pct <= 0) return null;
@@ -345,7 +345,7 @@ export const GoalsView: React.FC = () => {
 
       {/* Goals Cards Grid */}
       {goals.length === 0 ? (
-        <div className="bg-white rounded-3xl p-12 text-center text-slate-400 text-xs border border-slate-100 shadow-card">
+        <div className="bg-white dark:bg-[#131F33] rounded-3xl p-12 text-center text-slate-400 dark:text-slate-500 text-xs border border-slate-100 dark:border-[#1F304B] shadow-card">
           No savings goals yet. Click "+ New Savings Goal" above to create your first visual savings jar!
         </div>
       ) : (
@@ -360,23 +360,23 @@ export const GoalsView: React.FC = () => {
             return (
               <div
                 key={goal.id}
-                className="bg-white rounded-3xl p-6 border border-slate-100 shadow-card flex flex-col justify-between hover:shadow-lg transition-all group"
+                className="bg-white dark:bg-[#131F33] rounded-3xl p-6 border border-slate-100 dark:border-[#1F304B] shadow-card flex flex-col justify-between hover:shadow-lg transition-all group"
               >
                 <div>
                   {/* Header */}
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[10px] font-bold text-cyan-700 bg-cyan-50 border border-cyan-100 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                      <span className="text-[10px] font-bold text-cyan-700 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/30 border border-cyan-100 dark:border-cyan-800/50 px-2 py-0.5 rounded-full uppercase tracking-wider">
                         {goal.category || 'Savings'}
                       </span>
-                      <span className="text-[10px] font-extrabold text-teal-800 bg-teal-50 border border-teal-200/80 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <span className="text-[10px] font-extrabold text-teal-800 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/30 border border-teal-200/80 dark:border-teal-800/50 px-2 py-0.5 rounded-full flex items-center gap-1">
                         <Percent className="w-2.5 h-2.5" />
                         <span>{allocPct}% Allocation</span>
                       </span>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className="text-xl font-extrabold text-cyan-700">
+                      <span className="text-xl font-extrabold text-cyan-700 dark:text-cyan-400">
                         {pct}%
                       </span>
 
@@ -384,14 +384,14 @@ export const GoalsView: React.FC = () => {
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={() => handleOpenEditModal(goal)}
-                            className="p-1 rounded-lg text-slate-400 hover:text-cyan-600 hover:bg-cyan-50"
+                            className="p-1 rounded-lg text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/20"
                             title="Edit goal"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => setDeletingGoalId(goal.id)}
-                            className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                            className="p-1 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20"
                             title="Delete goal"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -401,37 +401,37 @@ export const GoalsView: React.FC = () => {
                     </div>
                   </div>
 
-                  <h3 className="text-lg font-bold text-slate-900 mb-2">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
                     {goal.name}
                   </h3>
 
                   {/* Connected Wallet Badge */}
-                  <div className="mb-4 flex items-center justify-between text-xs bg-slate-50 border border-slate-100 rounded-xl px-3 py-1.5">
+                  <div className="mb-4 flex items-center justify-between text-xs bg-slate-50 dark:bg-[#0B131F] border border-slate-100 dark:border-[#1F304B] rounded-xl px-3 py-1.5">
                     <span className="text-slate-400 font-medium">Connected Account</span>
-                    <span className="font-bold text-slate-700 flex items-center gap-1.5 truncate max-w-[160px]">
-                      <WalletIcon className="w-3.5 h-3.5 text-cyan-600 shrink-0" />
+                    <span className="font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 truncate max-w-[160px]">
+                      <WalletIcon className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 shrink-0" />
                       <span className="truncate">{connectedWallet ? connectedWallet.name : 'Unassigned'}</span>
                     </span>
                   </div>
 
                   {/* Visual Progress Jar Graphic */}
-                  <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 mb-4 flex items-center justify-between">
+                  <div className="bg-slate-50 dark:bg-[#0B131F] border border-slate-100 dark:border-[#1F304B] rounded-2xl p-4 mb-4 flex items-center justify-between">
                     <div>
                       <span className="text-xs text-slate-400 font-medium block">Current Balance</span>
-                      <span className="text-2xl font-black text-slate-900 mt-0.5 block">
+                      <span className="text-2xl font-black text-slate-900 dark:text-white mt-0.5 block">
                         {formatCurrency(goal.currentAmount, preferences.currencySymbol)}
                       </span>
                     </div>
                     <div className="text-right">
                       <span className="text-xs text-slate-400 font-medium block">Target Goal</span>
-                      <span className="text-sm font-bold text-slate-600 mt-0.5 block">
+                      <span className="text-sm font-bold text-slate-600 dark:text-slate-300 mt-0.5 block">
                         {formatCurrency(goal.targetAmount, preferences.currencySymbol)}
                       </span>
                     </div>
                   </div>
 
                   {/* Progress Bar */}
-                  <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden p-0.5 mb-2">
+                  <div className="w-full bg-slate-100 dark:bg-[#1A283E] h-3 rounded-full overflow-hidden p-0.5 mb-2">
                     <div
                       className="h-full rounded-full transition-all duration-1000"
                       style={{
@@ -451,20 +451,20 @@ export const GoalsView: React.FC = () => {
                 </div>
 
                 {/* Card Footer: Allocation Information & Deliberate Deposit */}
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                <div className="pt-3 border-t border-slate-100 dark:border-[#1F304B] flex items-center justify-between">
                   <div className="flex flex-col">
                     <span className="text-[10px] text-slate-400 font-medium">Est. Monthly Share</span>
-                    <span className="text-xs font-bold text-emerald-600">
+                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
                       +{formatCurrency(estimatedMonthlyShare, preferences.currencySymbol)} / mo
                     </span>
                   </div>
 
                   <button
                     onClick={() => handleOpenDepositModal(goal)}
-                    className="px-3 py-1.5 rounded-xl border border-slate-200 hover:border-cyan-400 hover:bg-cyan-50 text-cyan-900 text-xs font-bold active:scale-95 transition-all flex items-center gap-1"
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-[#1F304B] hover:border-cyan-400 dark:hover:border-cyan-500 hover:bg-cyan-50 dark:hover:bg-[#1A283E] text-cyan-900 dark:text-cyan-300 text-xs font-bold active:scale-95 transition-all flex items-center gap-1"
                   >
                     <span>Deposit</span>
-                    <ArrowRight className="w-3 h-3 text-cyan-600" />
+                    <ArrowRight className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />
                   </button>
                 </div>
               </div>
@@ -475,20 +475,20 @@ export const GoalsView: React.FC = () => {
 
       {/* ADD / EDIT GOAL MODAL */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-slate-100 p-6 text-slate-800 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#131F33] rounded-3xl w-full max-w-md shadow-2xl border border-slate-100 dark:border-[#1F304B] p-6 text-slate-800 dark:text-slate-100 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-[#1F304B] mb-5">
               <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-cyan-50 text-cyan-600">
+                <div className="p-2 rounded-xl bg-cyan-50 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400">
                   <Target className="w-5 h-5 stroke-[2.5]" />
                 </div>
-                <h3 className="text-lg font-bold text-slate-900">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                   {editingGoal ? 'Edit Savings Goal' : 'New Savings Goal'}
                 </h3>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -496,7 +496,7 @@ export const GoalsView: React.FC = () => {
 
             <form onSubmit={handleSubmitModal} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1">
                   Goal Name
                 </label>
                 <input
@@ -505,23 +505,23 @@ export const GoalsView: React.FC = () => {
                   placeholder="e.g. Summer Vacation, Emergency Reserve, New Car"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-[#1F304B] bg-white dark:bg-[#0B131F] text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 />
               </div>
 
               {/* CONNECTED WALLET SELECTION */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
                     Connected Wallet / Account
                   </label>
-                  <span className="text-[10px] text-cyan-700 font-semibold">Where funds are stored</span>
+                  <span className="text-[10px] text-cyan-700 dark:text-cyan-400 font-semibold">Where funds are stored</span>
                 </div>
                 <select
                   required
                   value={walletId}
                   onChange={(e) => setWalletId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-[#1F304B] text-xs font-bold text-slate-900 dark:text-white bg-white dark:bg-[#0B131F] focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 >
                   <option value="" disabled>Select an account</option>
                   {wallets.map((w) => (
@@ -530,7 +530,7 @@ export const GoalsView: React.FC = () => {
                     </option>
                   ))}
                 </select>
-                <p className="text-[11px] text-slate-400 mt-1">
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
                   Leftover money or income allocations will automatically be linked to this account.
                 </p>
               </div>
@@ -538,10 +538,10 @@ export const GoalsView: React.FC = () => {
               {/* ALLOCATION % OPTION */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
                     Savings Allocation Share (%)
                   </label>
-                  <span className="text-[10px] text-teal-700 font-extrabold">0% to 100%</span>
+                  <span className="text-[10px] text-teal-700 dark:text-teal-400 font-extrabold">0% to 100%</span>
                 </div>
                 <div className="relative">
                   <input
@@ -551,20 +551,20 @@ export const GoalsView: React.FC = () => {
                     required
                     value={allocationPercentage}
                     onChange={(e) => setAllocationPercentage(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-[#1F304B] bg-white dark:bg-[#0B131F] text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   />
                   <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
                     %
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-400 mt-1">
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
                   Percentage of monthly surplus or incoming paycheck allocated to this goal.
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1">
                     Target Goal ({preferences.currencySymbol})
                   </label>
                   <input
@@ -573,12 +573,12 @@ export const GoalsView: React.FC = () => {
                     required
                     value={targetAmount}
                     onChange={(e) => setTargetAmount(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-[#1F304B] bg-white dark:bg-[#0B131F] text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1">
                     Current Balance
                   </label>
                   <input
@@ -586,14 +586,14 @@ export const GoalsView: React.FC = () => {
                     min="0"
                     value={currentAmount}
                     onChange={(e) => setCurrentAmount(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-[#1F304B] bg-white dark:bg-[#0B131F] text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1">
                     Target Date
                   </label>
                   <input
@@ -601,18 +601,18 @@ export const GoalsView: React.FC = () => {
                     required
                     value={targetDate}
                     onChange={(e) => setTargetDate(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-[#1F304B] text-xs font-semibold text-slate-900 dark:text-white bg-white dark:bg-[#0B131F] focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1">
                     Category Tag
                   </label>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-[#1F304B] text-xs font-semibold text-slate-900 dark:text-white bg-white dark:bg-[#0B131F] focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   >
                     <option value="Savings">Savings</option>
                     <option value="Travel">Travel</option>
@@ -626,7 +626,7 @@ export const GoalsView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1.5">
                   Color Theme
                 </label>
                 <div className="flex items-center gap-2.5">
@@ -644,11 +644,11 @@ export const GoalsView: React.FC = () => {
                 </div>
               </div>
 
-              <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
+              <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100 dark:border-[#1F304B]">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-[#1F304B] text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#1A283E]"
                 >
                   Cancel
                 </button>
@@ -666,27 +666,27 @@ export const GoalsView: React.FC = () => {
 
       {/* DELIBERATE DEPOSIT MODAL */}
       {depositGoalId && goalToDeposit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl border border-slate-100 p-6 text-slate-800">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#131F33] rounded-3xl w-full max-w-sm shadow-2xl border border-slate-100 dark:border-[#1F304B] p-6 text-slate-800 dark:text-slate-100">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#1F304B] mb-4">
               <div>
-                <h3 className="font-bold text-slate-900 text-sm">Deposit to {goalToDeposit.name}</h3>
-                <p className="text-[11px] text-slate-400">Transfer funds into this savings jar</p>
+                <h3 className="font-bold text-slate-900 dark:text-white text-sm">Deposit to {goalToDeposit.name}</h3>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500">Transfer funds into this savings jar</p>
               </div>
-              <button onClick={() => setDepositGoalId(null)}>
+              <button onClick={() => setDepositGoalId(null)} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                 <X className="w-4 h-4 text-slate-400" />
               </button>
             </div>
 
             <form onSubmit={handleCustomDepositSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1">
                   Funding From Account
                 </label>
                 <select
                   value={depositWalletId}
                   onChange={(e) => setDepositWalletId(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-[#1F304B] text-xs font-bold text-slate-900 dark:text-white bg-white dark:bg-[#0B131F] focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 >
                   {wallets.map((w) => (
                     <option key={w.id} value={w.id}>
@@ -697,7 +697,7 @@ export const GoalsView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1">
                   Amount to Deposit ({preferences.currencySymbol})
                 </label>
                 <input
@@ -708,7 +708,7 @@ export const GoalsView: React.FC = () => {
                   autoFocus
                   value={customDepositAmt}
                   onChange={(e) => setCustomDepositAmt(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-base font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-[#1F304B] bg-white dark:bg-[#0B131F] text-base font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 />
               </div>
 
@@ -716,7 +716,7 @@ export const GoalsView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setDepositGoalId(null)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-[#1F304B] text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#1A283E]"
                 >
                   Cancel
                 </button>
@@ -734,24 +734,24 @@ export const GoalsView: React.FC = () => {
 
       {/* DELETE CONFIRMATION MODAL */}
       {deletingGoalId && goalToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl border border-slate-100 p-6 text-slate-800">
-            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#131F33] rounded-3xl w-full max-w-sm shadow-2xl border border-slate-100 dark:border-[#1F304B] p-6 text-slate-800 dark:text-slate-100">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-900/20 text-rose-500 dark:text-rose-400 flex items-center justify-center mb-4">
               <AlertCircle className="w-6 h-6" />
             </div>
 
-            <h3 className="text-lg font-bold text-slate-900 mb-1">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">
               Remove Savings Goal?
             </h3>
-            <p className="text-xs text-slate-500 mb-5 leading-relaxed">
-              Are you sure you want to remove <span className="font-bold text-slate-800">'{goalToDelete.name}'</span>?
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-5 leading-relaxed">
+              Are you sure you want to remove <span className="font-bold text-slate-800 dark:text-slate-200">'{goalToDelete.name}'</span>?
             </p>
 
             <div className="flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setDeletingGoalId(null)}
-                className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-[#1F304B] text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#1A283E]"
               >
                 Keep Goal
               </button>

@@ -18,12 +18,12 @@ export const DashboardView: React.FC = () => {
     return (
       <div className="space-y-6">
         {/* Quick Action Bar for Member */}
-        <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-white/70 backdrop-blur-md rounded-2xl border border-slate-200/70 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-white/70 dark:bg-[#131F33]/80 backdrop-blur-md rounded-2xl border border-slate-200/70 dark:border-[#1F304B] shadow-sm">
           <div>
-            <h2 className="text-sm font-bold text-slate-800">
+            <h2 className="text-sm font-bold text-slate-800 dark:text-white">
               Personal Wallet Overview
             </h2>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Track spending, record new transactions, and schedule recurring bills.
             </p>
           </div>
@@ -37,9 +37,9 @@ export const DashboardView: React.FC = () => {
             </button>
             <button
               onClick={() => setIsAddRecurringOpen(true)}
-              className="px-3.5 py-2 bg-white hover:bg-slate-50 text-cyan-800 border border-slate-200 text-xs font-bold rounded-xl shadow-sm active:scale-95 transition-all flex items-center gap-1.5"
+              className="px-3.5 py-2 bg-white dark:bg-[#1A283E] hover:bg-slate-50 dark:hover:bg-[#243754] text-cyan-800 dark:text-cyan-300 border border-slate-200 dark:border-[#1F304B] text-xs font-bold rounded-xl shadow-sm active:scale-95 transition-all flex items-center gap-1.5"
             >
-              <Plus className="w-3.5 h-3.5 stroke-[2.5] text-cyan-600" />
+              <Plus className="w-3.5 h-3.5 stroke-[2.5] text-cyan-600 dark:text-cyan-400" />
               <span>Add Recurring</span>
             </button>
           </div>

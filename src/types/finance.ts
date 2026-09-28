@@ -122,11 +122,15 @@ export interface Insight {
   metricDelta?: string;
 }
 
+export type AppTheme = 'light' | 'dark' | 'system';
+
 export interface UserPreferences {
   userName: string;
   currency: string;
   currencySymbol: string;
   selectedMonth: string;
+  theme?: AppTheme;
+  previewMobileOnPc?: boolean;
   tabletAutoRefreshEnabled?: boolean;
   tabletRefreshIntervalMinutes?: number;
 }

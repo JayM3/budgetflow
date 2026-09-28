@@ -89,7 +89,7 @@ export const Sidebar: React.FC = () => {
 
   return (
     <aside
-      className={`h-screen sticky top-0 bg-white/85 backdrop-blur-xl border-r border-slate-200/80 flex flex-col justify-between select-none shrink-0 transition-all duration-300 z-20 relative ${
+      className={`h-screen sticky top-0 bg-white/85 dark:bg-[#111C2D]/95 backdrop-blur-xl border-r border-slate-200/80 dark:border-[#1F304B] flex flex-col justify-between select-none shrink-0 transition-all duration-300 z-20 relative ${
         isCollapsed ? 'w-[76px] p-3 items-center' : 'w-64 p-5'
       }`}
     >
@@ -100,14 +100,14 @@ export const Sidebar: React.FC = () => {
         aria-label="Toggle sidebar collapse"
         className={`${
           isCollapsed
-            ? 'w-9 h-9 rounded-xl border border-cyan-200/80 bg-white hover:bg-cyan-100/70 text-slate-600 hover:text-cyan-700 flex items-center justify-center transition-all duration-200 shadow-sm mb-4 shrink-0 cursor-pointer active:scale-90'
-            : 'absolute top-5 right-4 w-9 h-9 rounded-xl border border-cyan-200/80 bg-gradient-to-tr from-cyan-50/90 via-white to-teal-50/80 hover:bg-cyan-100/70 hover:border-cyan-300 text-slate-600 hover:text-cyan-700 flex items-center justify-center transition-all duration-200 shadow-sm z-30 group cursor-pointer active:scale-90'
+            ? 'w-9 h-9 rounded-xl border border-cyan-200/80 dark:border-[#1F304B] bg-white dark:bg-[#131F33] hover:bg-cyan-100/70 dark:hover:bg-[#1A283E] text-slate-600 dark:text-slate-400 hover:text-cyan-700 dark:hover:text-cyan-300 flex items-center justify-center transition-all duration-200 shadow-sm mb-4 shrink-0 cursor-pointer active:scale-90'
+            : 'absolute top-5 right-4 w-9 h-9 rounded-xl border border-cyan-200/80 dark:border-[#1F304B] bg-gradient-to-tr from-cyan-50/90 via-white to-teal-50/80 dark:from-[#131F33] dark:via-[#16233B] dark:to-[#1A2942] hover:bg-cyan-100/70 dark:hover:bg-[#1A283E] hover:border-cyan-300 dark:hover:border-cyan-500/50 text-slate-600 dark:text-slate-400 hover:text-cyan-700 dark:hover:text-cyan-300 flex items-center justify-center transition-all duration-200 shadow-sm z-30 group cursor-pointer active:scale-90'
         }`}
       >
         {isCollapsed ? (
-          <PanelLeftOpen className="w-4 h-4 text-slate-600 group-hover:text-cyan-600 transition-colors" />
+          <PanelLeftOpen className="w-4 h-4 text-slate-600 dark:text-slate-400 group-hover:text-cyan-600 dark:group-hover:text-cyan-300 transition-colors" />
         ) : (
-          <PanelLeftClose className="w-4 h-4 text-slate-600 group-hover:text-cyan-600 transition-colors" />
+          <PanelLeftClose className="w-4 h-4 text-slate-600 dark:text-slate-400 group-hover:text-cyan-600 dark:group-hover:text-cyan-300 transition-colors" />
         )}
         {!isCollapsed && (
           <span className="absolute right-0 top-11 px-2.5 py-1 bg-slate-900/90 text-white text-[11px] font-medium rounded-lg shadow-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
@@ -125,7 +125,7 @@ export const Sidebar: React.FC = () => {
             isCollapsed ? 'justify-center' : ''
           }`}
         >
-          <div className="relative w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-50 via-white to-teal-50 p-1 flex items-center justify-center border border-cyan-100/90 shadow-sm group-hover:shadow-[0_0_20px_rgba(6,182,212,0.35)] group-hover:scale-105 transition-all duration-300 shrink-0">
+          <div className="relative w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-50 via-white to-teal-50 dark:from-[#16233B] dark:via-[#131F33] dark:to-[#1A2942] p-1 flex items-center justify-center border border-cyan-100/90 dark:border-[#1F304B] shadow-sm group-hover:shadow-[0_0_20px_rgba(6,182,212,0.35)] group-hover:scale-105 transition-all duration-300 shrink-0">
             <img
               src={logoImg}
               alt="BudgetFlow Logo"
@@ -134,13 +134,13 @@ export const Sidebar: React.FC = () => {
           </div>
           {!isCollapsed && (
             <div className="flex flex-col pr-8 transition-opacity duration-200">
-              <span className="text-xl font-black tracking-tight text-slate-900 leading-none">
+              <span className="text-xl font-black tracking-tight text-slate-900 dark:text-white leading-none">
                 Budget
                 <span className="bg-gradient-to-r from-teal-500 via-cyan-500 to-sky-600 bg-clip-text text-transparent">
                   Flow
                 </span>
               </span>
-              <span className="text-[9px] font-bold text-slate-400 tracking-wider uppercase mt-1">
+              <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 tracking-wider uppercase mt-1">
                 Family Hub & Wealth
               </span>
             </div>
@@ -162,10 +162,10 @@ export const Sidebar: React.FC = () => {
                 } ${
                   isActive
                     ? 'bg-gradient-to-r from-teal-600 via-cyan-600 to-sky-600 text-white shadow-lg shadow-cyan-600/25 font-semibold translate-x-0.5'
-                    : 'text-slate-600 hover:text-cyan-900 hover:bg-cyan-50/70'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-cyan-900 dark:hover:text-white hover:bg-cyan-50/70 dark:hover:bg-white/5'
                 }`}
               >
-                <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-slate-500'} shrink-0`} />
+                <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-slate-500 dark:text-slate-400'} shrink-0`} />
                 {!isCollapsed && <span>{item.label}</span>}
 
                 {/* Floating Glass Tooltip in Collapsed Rail Mode */}
@@ -181,12 +181,12 @@ export const Sidebar: React.FC = () => {
 
         {/* "What-If" Purchase Simulator Callout Card (Full Mode) */}
         {!isCollapsed && (
-          <div className="mt-4 p-3.5 rounded-2xl bg-gradient-to-br from-cyan-500/10 via-teal-400/5 to-sky-500/10 border border-cyan-200/70 shadow-sm shrink-0 w-full">
-            <div className="flex items-center gap-2 text-cyan-900 text-xs font-semibold uppercase tracking-wider mb-1">
-              <Sparkles className="w-3.5 h-3.5 text-cyan-600" />
+          <div className="mt-4 p-3.5 rounded-2xl bg-gradient-to-br from-cyan-500/10 via-teal-400/5 to-sky-500/10 dark:from-cyan-950/30 dark:via-teal-950/20 dark:to-sky-950/30 border border-cyan-200/70 dark:border-[#1F304B] shadow-sm shrink-0 w-full">
+            <div className="flex items-center gap-2 text-cyan-900 dark:text-cyan-300 text-xs font-semibold uppercase tracking-wider mb-1">
+              <Sparkles className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
               <span>Smart Simulator</span>
             </div>
-            <p className="text-xs text-slate-600 mb-2.5 leading-relaxed">
+            <p className="text-xs text-slate-600 dark:text-slate-400 mb-2.5 leading-relaxed">
               Testing a big purchase? See its impact on your daily budget.
             </p>
             <button
@@ -202,9 +202,9 @@ export const Sidebar: React.FC = () => {
         {isCollapsed && (
           <button
             onClick={() => setIsWhatIfOpen(true)}
-            className="group relative mt-3 p-2.5 rounded-2xl bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 text-cyan-700 flex items-center justify-center shrink-0 transition-all shadow-sm"
+            className="group relative mt-3 p-2.5 rounded-2xl bg-cyan-50 dark:bg-[#131F33] hover:bg-cyan-100 dark:hover:bg-[#1A283E] border border-cyan-200 dark:border-[#1F304B] text-cyan-700 dark:text-cyan-400 flex items-center justify-center shrink-0 transition-all shadow-sm"
           >
-            <Sparkles className="w-5 h-5 text-cyan-600 animate-pulse" />
+            <Sparkles className="w-5 h-5 text-cyan-600 dark:text-cyan-400 animate-pulse" />
             <div className="absolute left-[calc(100%+12px)] top-1/2 -translate-y-1/2 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-150 z-50 whitespace-nowrap bg-slate-900/95 backdrop-blur text-white text-xs font-semibold py-1.5 px-3 rounded-xl shadow-xl border border-slate-700/60">
               What-If Calculator
             </div>
@@ -214,11 +214,11 @@ export const Sidebar: React.FC = () => {
 
       {/* ================= BOTTOM SECTION: PERMANENTLY DOCKED IN VIEWPORT ================= */}
       {/* The 3 buttons ALWAYS remain visible right here, never pushed down by dashboard scrolling */}
-      <div className={`pt-3 border-t border-slate-200/70 space-y-1.5 shrink-0 mt-2 w-full ${isCollapsed ? 'px-0' : ''}`}>
+      <div className={`pt-3 border-t border-slate-200/70 dark:border-[#1F304B] space-y-1.5 shrink-0 mt-2 w-full ${isCollapsed ? 'px-0' : ''}`}>
         {/* 1. Launch Tablet Kiosk */}
         <button
           onClick={() => setIsTabletMode(true)}
-          className={`group relative w-full flex items-center gap-3 py-2.5 rounded-2xl font-bold text-xs bg-slate-900 text-teal-300 hover:bg-slate-800 transition-all shadow-sm ${
+          className={`group relative w-full flex items-center gap-3 py-2.5 rounded-2xl font-bold text-xs bg-slate-900 dark:bg-[#16233B] text-teal-300 hover:bg-slate-800 dark:hover:bg-[#1A283E] border border-transparent dark:border-[#1F304B] transition-all shadow-sm ${
             isCollapsed ? 'justify-center px-2' : 'px-3.5'
           }`}
         >
@@ -234,11 +234,11 @@ export const Sidebar: React.FC = () => {
         {/* 2. Activity Log */}
         <button
           onClick={() => setIsActivityLogOpen(true)}
-          className={`group relative w-full flex items-center gap-3 py-2 rounded-2xl font-medium text-sm text-slate-600 hover:text-cyan-900 hover:bg-cyan-50/70 transition-all ${
+          className={`group relative w-full flex items-center gap-3 py-2 rounded-2xl font-medium text-sm text-slate-600 dark:text-slate-400 hover:text-cyan-900 dark:hover:text-white hover:bg-cyan-50/70 dark:hover:bg-white/5 transition-all ${
             isCollapsed ? 'justify-center px-2' : 'px-3.5'
           }`}
         >
-          <History className="w-5 h-5 text-slate-500 shrink-0" />
+          <History className="w-5 h-5 text-slate-500 dark:text-slate-400 shrink-0" />
           {!isCollapsed && <span>Activity Log</span>}
           {isCollapsed && (
             <div className="absolute left-[calc(100%+12px)] top-1/2 -translate-y-1/2 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-150 z-50 whitespace-nowrap bg-slate-900/95 backdrop-blur text-white text-xs font-semibold py-1.5 px-3 rounded-xl shadow-xl border border-slate-700/60">
@@ -256,10 +256,10 @@ export const Sidebar: React.FC = () => {
             } ${
               activeView === 'settings'
                 ? 'bg-gradient-to-r from-teal-600 via-cyan-600 to-sky-600 text-white shadow-lg shadow-cyan-600/25 font-semibold'
-                : 'text-slate-600 hover:text-cyan-900 hover:bg-cyan-50/70'
+                : 'text-slate-600 dark:text-slate-400 hover:text-cyan-900 dark:hover:text-white hover:bg-cyan-50/70 dark:hover:bg-white/5'
             }`}
           >
-            <Settings className={`w-5 h-5 ${activeView === 'settings' ? 'text-white' : 'text-slate-500'} shrink-0`} />
+            <Settings className={`w-5 h-5 ${activeView === 'settings' ? 'text-white' : 'text-slate-500 dark:text-slate-400'} shrink-0`} />
             {!isCollapsed && <span>Settings</span>}
             {isCollapsed && (
               <div className="absolute left-[calc(100%+12px)] top-1/2 -translate-y-1/2 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-150 z-50 whitespace-nowrap bg-slate-900/95 backdrop-blur text-white text-xs font-semibold py-1.5 px-3 rounded-xl shadow-xl border border-slate-700/60">

@@ -7,6 +7,7 @@ import {
   SavingsGoal,
   Wallet,
   UserPreferences,
+  AppTheme,
   Insight,
   FamilyUser,
   HouseholdSettings,
@@ -85,6 +86,17 @@ interface FinanceContextType {
   serverStatus: ServerStatus | null;
   isTabletMode: boolean;
   setIsTabletMode: (mode: boolean) => void;
+
+  // Theming & Appearance
+  theme: AppTheme;
+  setTheme: (theme: AppTheme) => void;
+  isDarkMode: boolean;
+
+  // Device & Responsive State
+  isMobileOrTablet: boolean;
+  isPhone: boolean;
+  previewMobileOnPc: boolean;
+  setPreviewMobileOnPc: (val: boolean) => void;
 
   // Household & Multi-User State
   householdSettings: HouseholdSettings;
@@ -367,16 +379,24 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [preferences, setPreferences] = useState<UserPreferences>(() => {
     try {
       const saved = localStorage.getItem(LS_PREFIX + 'preferences');
+      const cachedTheme = (localStorage.getItem('budgetflow_theme') as AppTheme) || null;
       if (saved) {
         const parsed = JSON.parse(saved);
         return {
           ...initialPreferences,
           ...parsed,
+          theme: parsed.theme || cachedTheme || 'light',
+          previewMobileOnPc: parsed.previewMobileOnPc ?? false,
           tabletAutoRefreshEnabled: parsed.tabletAutoRefreshEnabled ?? true,
           tabletRefreshIntervalMinutes: parsed.tabletRefreshIntervalMinutes ?? 5,
         };
       }
-      return isGHP ? demoPreferences : initialPreferences;
+      const defaultPref = isGHP ? demoPreferences : initialPreferences;
+      return {
+        ...defaultPref,
+        theme: cachedTheme || defaultPref.theme || 'light',
+        previewMobileOnPc: false,
+      };
     } catch {
       return initialPreferences;
     }
@@ -485,6 +505,79 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       activityLogs,
     };
   });
+
+  // --------------------------------------------------------------------------
+  // THEME MANAGEMENT (Light, Dark, System)
+  // --------------------------------------------------------------------------
+  const theme: AppTheme = preferences.theme || 'light';
+
+  const [isSystemDark, setIsSystemDark] = useState<boolean>(() => {
+    if (typeof window !== 'undefined' && window.matchMedia) {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (e: MediaQueryListEvent) => {
+      setIsSystemDark(e.matches);
+    };
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
+  }, []);
+
+  const isDarkMode = theme === 'dark' || (theme === 'system' && isSystemDark);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
+
+  // --------------------------------------------------------------------------
+  // DEVICE DETECTION (Phone & Tablet vs PC Browser)
+  // --------------------------------------------------------------------------
+  const [deviceInfo, setDeviceInfo] = useState(() => {
+    if (typeof window === 'undefined') {
+      return { isMobileOrTablet: false, isPhone: false };
+    }
+    const ua = navigator.userAgent || '';
+    const isMobileUA =
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isCoarsePointer = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    const width = window.innerWidth;
+
+    const isMobileOrTablet = Boolean(isMobileUA || (isCoarsePointer && width <= 1024));
+    const isPhone = Boolean(width < 640 || /iPhone|iPod|Android.*Mobile/i.test(ua));
+
+    return { isMobileOrTablet, isPhone };
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleResize = () => {
+      const ua = navigator.userAgent || '';
+      const isMobileUA =
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const isCoarsePointer = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+      const width = window.innerWidth;
+
+      const isMobileOrTablet = Boolean(isMobileUA || (isCoarsePointer && width <= 1024));
+      const isPhone = Boolean(width < 640 || /iPhone|iPod|Android.*Mobile/i.test(ua));
+
+      setDeviceInfo({ isMobileOrTablet, isPhone });
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const categoryDebounceTimers = useRef<{ [key: string]: ReturnType<typeof setTimeout> }>({});
   const lastServerUpdateRef = useRef<string>('');
@@ -673,7 +766,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     document.addEventListener('visibilitychange', handleVisibility);
     window.addEventListener('storage', handleStorage);
 
-    const interval = setInterval(syncLiveUserAndData, 4000);
+    const pollInterval = isTabletMode ? 15000 : 4000;
+    const interval = setInterval(syncLiveUserAndData, pollInterval);
 
     return () => {
       isSubscribed = false;
@@ -682,7 +776,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       window.removeEventListener('storage', handleStorage);
       clearInterval(interval);
     };
-  }, [isSelfHosted]);
+  }, [isSelfHosted, isTabletMode]);
 
   // Recurring Commitments Auto-Check:
   // Automatically check due bills & recurring income on scheduled date, spawning the next cycle
@@ -1768,6 +1862,18 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
+  const setTheme = (newTheme: AppTheme) => {
+    try {
+      localStorage.setItem('budgetflow_theme', newTheme);
+    } catch (_) {}
+    updatePreferences({ theme: newTheme });
+  };
+
+  const previewMobileOnPc = Boolean(preferences.previewMobileOnPc);
+  const setPreviewMobileOnPc = (val: boolean) => {
+    updatePreferences({ previewMobileOnPc: val });
+  };
+
   const resetToDemoData = () => {
     setHouseholdSettings(demoHouseholdSettings);
     setFamilyUsers(demoFamilyUsers);
@@ -2047,6 +2153,13 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         serverStatus,
         isTabletMode,
         setIsTabletMode,
+        theme,
+        setTheme,
+        isDarkMode,
+        isMobileOrTablet: deviceInfo.isMobileOrTablet,
+        isPhone: deviceInfo.isPhone,
+        previewMobileOnPc,
+        setPreviewMobileOnPc,
         householdSettings,
         familyUsers,
         currentUser,

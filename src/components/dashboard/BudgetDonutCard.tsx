@@ -12,6 +12,7 @@ export const BudgetDonutCard: React.FC = () => {
     remainingBudget,
     spentPercentage,
     setIsGuideOpenWithId,
+    isDarkMode,
   } = useFinance();
 
   // SVG Circular progress math
@@ -23,11 +24,11 @@ export const BudgetDonutCard: React.FC = () => {
   const strokeDashoffset = circumference - (spentPercentage / 100) * circumference;
 
   return (
-    <div className="bg-white rounded-3xl p-6 border border-slate-100/80 shadow-card flex flex-col justify-between">
+    <div className="bg-white dark:bg-[#131F33] rounded-3xl p-6 border border-slate-100/80 dark:border-[#1F304B] shadow-card flex flex-col justify-between transition-colors">
       {/* Card Header */}
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center space-x-2">
-          <h2 className="text-base font-bold text-slate-800 tracking-tight">
+          <h2 className="text-base font-bold text-slate-800 dark:text-white tracking-tight">
             This Month's Budget
           </h2>
           <GuideButton
@@ -35,7 +36,7 @@ export const BudgetDonutCard: React.FC = () => {
             onOpenGuide={(id) => setIsGuideOpenWithId(id)}
           />
         </div>
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200/80 text-xs font-semibold text-slate-700 cursor-pointer hover:bg-slate-100 transition-all">
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-50 dark:bg-[#1A283E] border border-slate-200/80 dark:border-[#1F304B] text-xs font-semibold text-slate-700 dark:text-slate-200 cursor-pointer hover:bg-slate-100 dark:hover:bg-[#223552] transition-all">
           <span>{preferences.selectedMonth}</span>
           <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
         </div>
@@ -52,7 +53,7 @@ export const BudgetDonutCard: React.FC = () => {
               cy={size / 2}
               r={radius}
               fill="transparent"
-              stroke="#E2E8F0"
+              stroke={isDarkMode ? '#1E2D44' : '#E2E8F0'}
               strokeWidth={strokeWidth}
               strokeLinecap="round"
             />
@@ -80,10 +81,10 @@ export const BudgetDonutCard: React.FC = () => {
 
           {/* Center text */}
           <div className="absolute flex flex-col items-center justify-center text-center">
-            <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
+            <span className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
               {spentPercentage}%
             </span>
-            <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               spent
             </span>
           </div>
@@ -94,10 +95,10 @@ export const BudgetDonutCard: React.FC = () => {
           {/* Total Budget */}
           <div className="flex items-center justify-between gap-6">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#0C4A6E] shrink-0" />
-              <span className="text-xs font-medium text-slate-600">Total Budget</span>
+              <span className={`w-2.5 h-2.5 rounded-full ${isDarkMode ? 'bg-[#38BDF8]' : 'bg-[#0C4A6E]'} shrink-0`} />
+              <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Total Budget</span>
             </div>
-            <span className="text-sm font-bold text-slate-900">
+            <span className="text-sm font-bold text-slate-900 dark:text-white">
               {formatCurrency(totalBudget, preferences.currencySymbol)}
             </span>
           </div>
@@ -106,9 +107,9 @@ export const BudgetDonutCard: React.FC = () => {
           <div className="flex items-center justify-between gap-6">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-[#06B6D4] shrink-0" />
-              <span className="text-xs font-medium text-slate-600">Spent</span>
+              <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Spent</span>
             </div>
-            <span className="text-sm font-bold text-slate-900">
+            <span className="text-sm font-bold text-slate-900 dark:text-white">
               {formatCurrency(totalSpent, preferences.currencySymbol)}
             </span>
           </div>
@@ -117,9 +118,9 @@ export const BudgetDonutCard: React.FC = () => {
           <div className="flex items-center justify-between gap-6">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-[#2DD4BF] shrink-0" />
-              <span className="text-xs font-medium text-slate-600">Remaining</span>
+              <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Remaining</span>
             </div>
-            <span className="text-sm font-bold text-teal-600">
+            <span className="text-sm font-bold text-teal-600 dark:text-teal-400">
               {formatCurrency(remainingBudget, preferences.currencySymbol)}
             </span>
           </div>

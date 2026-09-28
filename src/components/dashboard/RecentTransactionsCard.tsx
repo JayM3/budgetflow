@@ -56,42 +56,42 @@ const getCategoryPill = (category: string) => {
   switch (category.toLowerCase()) {
     case 'groceries':
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">
-          <ShoppingBag className="w-3 h-3 text-emerald-500" />
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-transparent dark:border-emerald-800/40">
+          <ShoppingBag className="w-3 h-3 text-emerald-500 dark:text-emerald-400" />
           Groceries
         </span>
       );
     case 'entertainment':
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-pink-50 text-pink-700">
-          <Gamepad2 className="w-3 h-3 text-pink-500" />
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-pink-50 dark:bg-pink-950/60 text-pink-700 dark:text-pink-300 border border-transparent dark:border-pink-800/40">
+          <Gamepad2 className="w-3 h-3 text-pink-500 dark:text-pink-400" />
           Entertainment
         </span>
       );
     case 'transport':
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-orange-50 text-orange-700">
-          <Car className="w-3 h-3 text-orange-500" />
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-orange-50 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 border border-transparent dark:border-orange-800/40">
+          <Car className="w-3 h-3 text-orange-500 dark:text-orange-400" />
           Transport
         </span>
       );
     case 'utilities':
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-50 text-purple-700">
-          <Zap className="w-3 h-3 text-purple-500" />
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-transparent dark:border-purple-800/40">
+          <Zap className="w-3 h-3 text-purple-500 dark:text-purple-400" />
           Utilities
         </span>
       );
     case 'income':
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-50 text-cyan-700">
-          <ArrowDownLeft className="w-3 h-3 text-cyan-500" />
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 border border-transparent dark:border-cyan-800/40">
+          <ArrowDownLeft className="w-3 h-3 text-cyan-500 dark:text-cyan-400" />
           Income
         </span>
       );
     default:
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
           {category}
         </span>
       );
@@ -105,10 +105,10 @@ export const RecentTransactionsCard: React.FC = () => {
   const recent = transactions.slice(0, 5);
 
   return (
-    <div className="bg-white rounded-3xl p-6 border border-slate-100/80 shadow-card">
+    <div className="bg-white dark:bg-[#131F33] rounded-3xl p-6 border border-slate-100/80 dark:border-[#1F304B] shadow-card transition-colors">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-base font-bold text-slate-800 tracking-tight">
+        <h2 className="text-base font-bold text-slate-800 dark:text-white tracking-tight">
           Recent Transactions
         </h2>
         <div className="flex items-center gap-2">
@@ -121,7 +121,7 @@ export const RecentTransactionsCard: React.FC = () => {
           </button>
           <button
             onClick={() => setActiveView('transactions')}
-            className="text-xs font-semibold text-cyan-600 hover:text-cyan-700 transition-colors px-2 py-1"
+            className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 transition-colors px-2 py-1"
           >
             View all
           </button>
@@ -130,18 +130,18 @@ export const RecentTransactionsCard: React.FC = () => {
 
       {recent.length === 0 ? (
         <div className="py-10 text-center space-y-2">
-          <p className="text-xs font-bold text-slate-600">
+          <p className="text-xs font-bold text-slate-600 dark:text-slate-400">
             No transactions recorded yet
           </p>
-          <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
-            Tap <strong className="text-teal-600">+ Add Transaction</strong> above to log your first purchase or income deposit.
+          <p className="text-[11px] text-slate-400 dark:text-slate-500 max-w-xs mx-auto">
+            Tap <strong className="text-teal-600 dark:text-teal-400">+ Add Transaction</strong> above to log your first purchase or income deposit.
           </p>
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="text-slate-400 font-semibold border-b border-slate-100">
+              <tr className="text-slate-400 dark:text-slate-500 font-semibold border-b border-slate-100 dark:border-[#1F304B]">
                 <th className="pb-3 w-8">#</th>
                 <th className="pb-3">Merchant</th>
                 <th className="pb-3">Category</th>
@@ -149,24 +149,24 @@ export const RecentTransactionsCard: React.FC = () => {
                 <th className="pb-3 text-right">Amount</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody className="divide-y divide-slate-50 dark:divide-[#1F304B]/60">
               {recent.map((tx, idx) => {
                 const isIncome = tx.type === 'income';
                 return (
-                  <tr key={tx.id} className="hover:bg-slate-50/70 transition-colors">
+                  <tr key={tx.id} className="hover:bg-slate-50/70 dark:hover:bg-white/5 transition-colors">
                     {/* Row Number */}
-                    <td className="py-3 text-slate-400 font-medium">{idx + 1}</td>
+                    <td className="py-3 text-slate-400 dark:text-slate-500 font-medium">{idx + 1}</td>
 
                     {/* Merchant with Icon */}
                     <td className="py-3">
                       <div className="flex items-center gap-3">
                         {getMerchantIcon(tx)}
                         <div>
-                          <span className="font-semibold text-slate-800 text-xs block">
+                          <span className="font-semibold text-slate-800 dark:text-white text-xs block">
                             {tx.merchant}
                           </span>
                           {tx.userName && (
-                            <span className="text-[10px] text-teal-600 font-medium">
+                            <span className="text-[10px] text-teal-600 dark:text-teal-400 font-medium">
                               by {tx.userName}
                             </span>
                           )}
@@ -178,12 +178,12 @@ export const RecentTransactionsCard: React.FC = () => {
                     <td className="py-3">{getCategoryPill(tx.category)}</td>
 
                     {/* Date */}
-                    <td className="py-3 text-slate-500 font-medium">
+                    <td className="py-3 text-slate-500 dark:text-slate-400 font-medium">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span>{formatDateDisplay(tx.date)}</span>
                         {tx.alreadyHappened && (
                           <span
-                            className="text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200"
+                            className="text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/40"
                             title="Historical transaction (wallet balance unchanged)"
                           >
                             Historical
@@ -196,7 +196,7 @@ export const RecentTransactionsCard: React.FC = () => {
                     <td className="py-3 text-right">
                       <span
                         className={`font-bold text-xs ${
-                          isIncome ? 'text-emerald-600' : 'text-slate-900'
+                          isIncome ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-white'
                         }`}
                       >
                         {isIncome ? '+' : '-'}

@@ -27,6 +27,8 @@ export const initialPreferences: UserPreferences = {
   currency: 'NOK',
   currencySymbol: 'kr',
   selectedMonth: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+  theme: 'light',
+  previewMobileOnPc: false,
   tabletAutoRefreshEnabled: true,
   tabletRefreshIntervalMinutes: 5,
 };
@@ -107,6 +109,8 @@ export const demoPreferences: UserPreferences = {
   currency: 'USD',
   currencySymbol: '$',
   selectedMonth: 'November 2024',
+  theme: 'light',
+  previewMobileOnPc: false,
   tabletAutoRefreshEnabled: true,
   tabletRefreshIntervalMinutes: 5,
 };
